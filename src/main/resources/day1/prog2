@@ -1,0 +1,28 @@
+#!/bin/sh
+sed '
+s/\([1-9]\|one\|two\|three\|four\|five\|six\|seven\|eight\|nine\).*/\1/
+s/one/1/
+s/two/2/
+s/three/3/
+s/four/4/
+s/five/5/
+s/six/6/
+s/seven/7/
+s/eight/8/
+s/nine/9/
+s/.*\(.\)$/\1/
+' input > left
+rev input | sed '
+s/\([1-9]\|eno\|owt\|eerht\|ruof\|evif\|xis\|neves\|thgie\|enin\).*/\1/
+s/eno/1/
+s/owt/2/
+s/eerht/3/
+s/ruof/4/
+s/evif/5/
+s/xis/6/
+s/neves/7/
+s/thgie/8/
+s/enin/9/
+s/.*\(.\)$/\1/
+' > right
+paste left right | tr -d '\t' | awk '{ t  += $1 } END { print t }'
