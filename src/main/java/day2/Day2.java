@@ -30,11 +30,13 @@ enum Ball {
     }
 }
 
-public class Puzzle1 {
+public class Day2 {
     public static void main(String[] args) throws IOException {
         new Puzzle1().solve();
     }
+}
 
+class Puzzle1 {
     private static int getTotal(BufferedReader reader) throws IOException {
         int total = 0;
         for (var line = reader.readLine(); line != null; line = reader.readLine()) {
@@ -46,7 +48,7 @@ public class Puzzle1 {
         return total;
     }
 
-    private void solve() throws IOException {
+    void solve() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day2/day2_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var total = getTotal(reader);
@@ -70,7 +72,7 @@ record Game(int id, Sample[] samples) {
         return new Game(id, Arrays.stream(sampleTexts).map(Sample::fromText).toArray(Sample[]::new));
     }
 
-    public boolean isPossible() {
+    boolean isPossible() {
         return Arrays.stream(samples).allMatch(Sample::isPossible);
     }
 }
@@ -95,7 +97,7 @@ record Sample(int red, int green, int blue) {
         return new Sample(red + other.red, green + other.green, blue + other.blue);
     }
 
-    public boolean isPossible() {
+    boolean isPossible() {
         return red <= 12 && green <= 13 && blue <= 14;
     }
 }
