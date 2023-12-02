@@ -33,27 +33,33 @@ enum Ball {
 public class Day2 {
     public static void main(String[] args) throws IOException {
         new Puzzle1().solve();
+        new Puzzle2().solve();
     }
 }
 
-class Puzzle1 {
-    private static int getTotal(BufferedReader reader) throws IOException {
-        int total = 0;
-        for (var line = reader.readLine(); line != null; line = reader.readLine()) {
-            var game = Game.from(line);
-            if (game.isPossible()) {
-                total += game.id();
-            }
-        }
-        return total;
-    }
+abstract class Puzzle {
+    abstract void solve(Game[] games);
 
     void solve() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day2/day2_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
-            var total = getTotal(reader);
-            System.out.println(total);
+            var games = reader.lines().map(Game::from).toArray(Game[]::new);
+            solve(games);
         }
+    }
+}
+
+class Puzzle1 extends Puzzle {
+    @Override
+    void solve(Game[] games) {
+        System.out.println(Arrays.stream(games).filter(Game::isPossible).mapToInt(Game::id).sum());
+    }
+}
+
+class Puzzle2 extends Puzzle {
+    @Override
+    void solve(Game[] games) {
+        System.out.println(Arrays.stream(games).mapToInt(Game::power).sum());
     }
 }
 
@@ -74,6 +80,10 @@ record Game(int id, Sample[] samples) {
 
     boolean isPossible() {
         return Arrays.stream(samples).allMatch(Sample::isPossible);
+    }
+
+    int power() {
+        return Arrays.stream(samples).reduce(Sample.ZERO, Sample::max).power();
     }
 }
 
@@ -97,7 +107,15 @@ record Sample(int red, int green, int blue) {
         return new Sample(red + other.red, green + other.green, blue + other.blue);
     }
 
+    Sample max(Sample other) {
+        return new Sample(Integer.max(red, other.red), Integer.max(green, other.green), Integer.max(blue, other.blue));
+    }
+
     boolean isPossible() {
         return red <= 12 && green <= 13 && blue <= 14;
+    }
+
+    int power() {
+        return red * green * blue;
     }
 }
