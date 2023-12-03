@@ -5,9 +5,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,18 +20,13 @@ import java.util.stream.Stream;
 public class Day3 {
     public static void main(String[] args) throws IOException {
         new Puzzle1().solve();
+        new Puzzle2().solve();
     }
 }
 
 record Point(int x, int y) {
     Stream<Point> smear() {
-        List<Point> points = new ArrayList<>();
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                points.add(new Point(x + i, y + j));
-            }
-        }
-        return points.stream();
+        return IntStream.rangeClosed(-1, 1).boxed().flatMap(i -> IntStream.rangeClosed(-1, 1).mapToObj(j -> new Point(x + i, y + j)));
     }
 }
 
@@ -38,7 +36,18 @@ record Rectangle(int x, int y, int width) {
     }
 }
 
-record Symbol(Point p, String code) {
+record Symbol(Point p, String code, Set<Part> parts) {
+    Symbol(Point p, String code) {
+        this(p, code, new HashSet<>());
+    }
+
+    boolean isGear() {
+        return "*".equals(code) && parts.size() == 2;
+    }
+
+    int gearRatio() {
+        return parts.stream().map(part -> Integer.parseInt(part.code())).reduce(1, (a, b) -> a * b);
+    }
 }
 
 record Part(Rectangle r, String code) {
@@ -50,15 +59,11 @@ class Schematic {
     private final Map<Point, Symbol> symbolsMap = new HashMap<>();
     private final AtomicInteger counter = new AtomicInteger();
     private final List<Part> parts = new ArrayList<>();
+    private final Set<Part> usedParts = new HashSet<>();
     private final List<Symbol> symbols = new ArrayList<>();
 
     void parse(Stream<String> lines) {
         lines.forEach(this::parse);
-    }
-
-    int solve() {
-        symbols.forEach(symbol -> symbol.p().smear().forEach(point -> symbolsMap.put(point, symbol)));
-        return parts.stream().filter(part -> part.r().smear().anyMatch(symbolsMap::containsKey)).mapToInt(part -> Integer.parseInt(part.code())).sum();
     }
 
     void parse(String line) {
@@ -70,15 +75,52 @@ class Schematic {
             symbols.add(new Symbol(new Point(m.start() + 1, y), m.group(1)));
         }
     }
+
+    void buildMap() {
+        symbols.forEach(symbol -> symbol.p().smear().forEach(point -> symbolsMap.put(point, symbol)));
+        parts.forEach(part -> part.r().smear().forEach(point -> Optional.ofNullable(symbolsMap.get(point)).ifPresent(symbol -> {
+                    usedParts.add(part);
+                    symbol.parts().add(part);
+                }
+        )));
+    }
+
+    int solve() {
+        buildMap();
+        return usedParts.stream().mapToInt(part -> Integer.parseInt(part.code())).sum();
+    }
+
+    int gears() {
+        buildMap();
+        return symbols.stream().filter(Symbol::isGear).mapToInt(Symbol::gearRatio).sum();
+    }
 }
 
-class Puzzle1 {
+abstract class Puzzle {
+    abstract void solve(Schematic schematic);
+
     void solve() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day3/day3_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             Schematic schematic = new Schematic();
             schematic.parse(reader.lines());
-            System.out.println(schematic.solve());
+            solve(schematic);
         }
+    }
+}
+
+class Puzzle1 extends Puzzle {
+
+    @Override
+    void solve(Schematic schematic) {
+        System.out.println(schematic.solve());
+    }
+}
+
+class Puzzle2 extends Puzzle {
+
+    @Override
+    void solve(Schematic schematic) {
+        System.out.println(schematic.gears());
     }
 }
