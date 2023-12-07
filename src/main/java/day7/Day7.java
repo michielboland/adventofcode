@@ -10,20 +10,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 enum Card {
-    ACE("A"), KING("K"), QUEEN("Q"), JACK("J"), TEN("T"), NINE("9"), EIGHT("8"), SEVEN("7"), SIX("6"), FIVE("5"), FOUR("4"), THREE("3"), TWO("2");
-    final String label;
+    ACE('A'), KING('K'), QUEEN('Q'), JACK('J'), TEN('T'), NINE('9'), EIGHT('8'), SEVEN('7'), SIX('6'), FIVE('5'), FOUR('4'), THREE('3'), TWO('2'), JOKER('J');
+    final char label;
 
-    Card(String label) {
+    Card(char label) {
         this.label = label;
     }
 
-    static Card from(String s) {
-        return Arrays.stream(values()).filter(c -> c.label.equals(s)).findFirst().orElseThrow();
+    static Card from(char label, boolean jokers) {
+        return jokers && label == 'J' ? JOKER : Arrays.stream(values()).filter(c -> c.label == label).findFirst().orElseThrow();
     }
 }
 
@@ -33,41 +32,48 @@ enum Type {
 
 public class Day7 {
     public static void main(String[] args) throws IOException {
-        new Puzzle().solve(Game::printWinnings);
+        new Puzzle().solve(false);
+        new Puzzle().solve(true);
     }
 }
 
 record Hand(Card[] cards, int bid) implements Comparable<Hand> {
-    static Hand from(String s) {
+    static Hand from(String s, boolean jokers) {
         String[] parts = s.split(" ");
-        return new Hand(parts[0].chars().mapToObj(i -> Card.from(String.valueOf((char) i))).toArray(Card[]::new), Integer.parseInt(parts[1]));
+        return new Hand(parts[0].chars().mapToObj(i -> Card.from((char) i, jokers)).toArray(Card[]::new), Integer.parseInt(parts[1]));
     }
 
     Type type() {
         Map<Card, Integer> map = new HashMap<>();
         Arrays.stream(cards).forEach(c -> map.compute(c, (k, v) -> v == null ? 1 : v + 1));
         int max = map.values().stream().mapToInt(i -> i).max().orElseThrow();
+        int wildcards = map.getOrDefault(Card.JOKER, 0);
         return switch (map.size()) {
             case 1 -> Type.FIVE_OF_A_KIND;
             case 2 -> switch (max) {
-                case 4 -> Type.FOUR_OF_A_KIND;
-                case 3 -> Type.FULL_HOUSE;
+                case 4 -> wildcards == 0 ? Type.FOUR_OF_A_KIND : Type.FIVE_OF_A_KIND;
+                case 3 -> wildcards == 0 ? Type.FULL_HOUSE : Type.FIVE_OF_A_KIND;
                 default -> throw new IllegalArgumentException();
             };
             case 3 -> switch (max) {
-                case 3 -> Type.THREE_OF_A_KIND;
-                case 2 -> Type.TWO_PAIR;
+                case 3 -> wildcards == 0 ? Type.THREE_OF_A_KIND : Type.FOUR_OF_A_KIND;
+                case 2 -> switch (wildcards) {
+                    case 0 -> Type.TWO_PAIR;
+                    case 1 -> Type.FULL_HOUSE;
+                    case 2 -> Type.FOUR_OF_A_KIND;
+                    default -> throw new IllegalArgumentException();
+                };
                 default -> throw new IllegalArgumentException();
             };
-            case 4 -> Type.ONE_PAIR;
-            case 5 -> Type.HIGH_CARD;
+            case 4 -> wildcards == 0 ? Type.ONE_PAIR : Type.THREE_OF_A_KIND;
+            case 5 -> wildcards == 0 ? Type.HIGH_CARD : Type.ONE_PAIR;
             default -> throw new IllegalArgumentException();
         };
     }
 
     @Override
     public String toString() {
-        return Arrays.stream(cards).map(c -> c.label).collect(Collectors.joining()) + " " + bid;
+        return Arrays.stream(cards).map(c -> String.valueOf(c.label)).collect(Collectors.joining()) + " " + bid + " " + type();
     }
 
     @Override
@@ -80,13 +86,13 @@ record Hand(Card[] cards, int bid) implements Comparable<Hand> {
     }
 }
 
-record Game(List<Hand> hands) {
-    Game() {
-        this(new ArrayList<>());
+record Game(List<Hand> hands, boolean jokers) {
+    Game(boolean jokers) {
+        this(new ArrayList<>(), jokers);
     }
 
     void parse(String line) {
-        hands.add(Hand.from(line));
+        hands.add(Hand.from(line, jokers));
     }
 
     void printWinnings() {
@@ -96,12 +102,12 @@ record Game(List<Hand> hands) {
 }
 
 class Puzzle {
-    void solve(Consumer<Game> solver) throws IOException {
+    void solve(boolean jokers) throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day7/day_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
-            var game = new Game();
+            var game = new Game(jokers);
             reader.lines().forEach(game::parse);
-            solver.accept(game);
+            game.printWinnings();
         }
     }
 }
