@@ -3,6 +3,7 @@ package day8;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +26,8 @@ enum Instruction {
 
 public class Day8 {
     public static void main(String[] args) throws IOException {
-        System.out.println(new Puzzle().solve());
+        System.out.println(new Puzzle().solve(false));
+        System.out.println(new Puzzle().solve(true));
     }
 }
 
@@ -42,6 +44,14 @@ record Position(String label, String left, String right) {
 
     String nextLabel(Instruction instruction) {
         return instruction == Instruction.L ? left : right;
+    }
+
+    boolean isStart(boolean ghost) {
+        return ghost ? label.endsWith("A") : label.equals("AAA");
+    }
+
+    boolean isEnd(boolean ghost) {
+        return ghost ? label.endsWith("Z") : label.equals("ZZZ");
     }
 }
 
@@ -71,19 +81,26 @@ class DesertMap {
         return positions.get(nextLabel);
     }
 
-    int solve() {
+    int count(Position position, boolean ghost) {
         int n = 0;
-        final Position from = positions.get("AAA");
-        final Position to = positions.get("ZZZ");
-        for (Position position = from; position != to; position = next(position)) {
+        while (!position.isEnd(ghost)) {
+            position = next(position);
             ++n;
         }
         return n;
     }
+
+    BigInteger lcm(BigInteger a, BigInteger b) {
+        return a == null ? b : a.multiply(b).divide(a.gcd(b));
+    }
+
+    BigInteger solve(boolean ghost) {
+        return positions.values().stream().filter(p -> p.isStart(ghost)).map(p -> new BigInteger(String.valueOf(count(p, ghost)))).reduce(null, this::lcm);
+    }
 }
 
 class Puzzle {
-    int solve() throws IOException {
+    BigInteger solve(boolean ghost) throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day8/day8_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var map = new DesertMap();
@@ -92,7 +109,7 @@ class Puzzle {
                 throw new IllegalStateException();
             }
             reader.lines().forEach(map::readPosition);
-            return map.solve();
+            return map.solve(ghost);
         }
     }
 }
