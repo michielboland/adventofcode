@@ -10,7 +10,8 @@ import java.util.Objects;
 
 public class Day9 {
     public static void main(String[] args) throws IOException {
-        new Puzzle().solve();
+        new Puzzle().solve(false);
+        new Puzzle().solve(true);
     }
 }
 
@@ -28,21 +29,21 @@ record Sequence(int[] numbers) {
     boolean isZero() {
         return Arrays.stream(numbers).allMatch(i -> i == 0);
     }
-    int next() {
+    int next(boolean backwards) {
         if (isZero()) {
             return 0;
         }
-        return numbers[numbers.length - 1] + derived().next();
+        return backwards ? numbers[0] - derived().next(true) : numbers[numbers.length - 1] + derived().next(false);
     }
 }
 
 class Puzzle {
     final List<Sequence> sequences = new ArrayList<>();
-    void solve() throws IOException {
+    void solve(boolean backwards) throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day9/day9_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             sequences.addAll(reader.lines().map(Sequence::from).toList());
-            System.out.println((sequences.stream().mapToInt(Sequence::next).sum()));
+            System.out.println((sequences.stream().mapToInt(s -> s.next(backwards)).sum()));
         }
     }
 }
