@@ -3,13 +3,16 @@ package day10;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 enum Heading {
@@ -119,24 +122,60 @@ record Grid(Map<Coordinate, Tile> tiles, Tile start) {
         return startTiles.get(0);
     }
 
-    int walk(Heading heading) {
-        int steps = 1;
+    static boolean isInside(Coordinate t, List<Coordinate> path) {
+        if (path.isEmpty()) {
+            return false;
+        }
+        if (path.contains(t)) {
+            return false;
+        }
+        List<Coordinate> loop = new ArrayList<>(path);
+        loop.add(path.get(0));
+        int index = 0;
+        for (int i = 0; i + 1 < loop.size(); i++) {
+            var p = loop.get(i);
+            var q = loop.get(i + 1);
+            var yFlag = p.y() >= t.y();
+            if (yFlag != (q.y() >= t.y())) {
+                var ySign = yFlag ? -1 : 1;
+                var xFlag = p.x() >= t.x();
+                if (xFlag == q.x() >= t.x()) {
+                    if (xFlag) {
+                        index += ySign;
+                    }
+                } else {
+                    throw new UnsupportedOperationException();
+                }
+            }
+        }
+        return index != 0;
+    }
+
+    List<Tile> walk(Heading heading) {
+        List<Tile> tiles = new ArrayList<>();
         Tile tile = start;
         do {
             if (heading == Heading.NOWHERE) {
-                return 0;
+                return Collections.emptyList();
             }
+            tiles.add(tile);
             tile = tile(heading.head.apply(tile.coordinate()));
             if (tile == start) {
-                return steps;
+                return tiles;
             }
-            ++steps;
             heading = tile.type().nextHeading.apply(heading);
         } while (true);
     }
 
-    void walkAllHeadings() {
-        System.out.println(Arrays.stream(Heading.values()).mapToInt(this::walk).filter(n -> n > 1).findFirst().orElseThrow() >> 1);
+    List<Coordinate> walkAllHeadings() {
+        List<Coordinate> path = Arrays.stream(Heading.values()).map(this::walk).filter(Predicate.not(List::isEmpty)).findFirst().orElseThrow().stream().map(Tile::coordinate).toList();
+        System.out.println("max distance: " + (path.size() >> 1));
+        return path;
+    }
+
+    void countInsidePoints(List<Coordinate> path) {
+        List<Coordinate> inside = tiles.values().stream().map(Tile::coordinate).filter(t -> isInside(t, path)).toList();
+        System.out.println("inside points: " + inside.size());
     }
 
     Tile tile(Coordinate coordinate) {
@@ -150,15 +189,17 @@ public class Day10 {
     }
 }
 
-// parse 60 ms
-// walkAllHeadings 12 ms
+// parse 56 ms
+// walkAllHeadings 21 ms
+// countInsidePoints 951 ms
 
 class Puzzle {
     void solve() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day10/day10_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var grid = Grid.parse(reader.lines());
-            grid.walkAllHeadings();
+            List<Coordinate> coordinates = grid.walkAllHeadings();
+            grid.countInsidePoints(coordinates);
         }
     }
 }
