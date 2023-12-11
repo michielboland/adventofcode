@@ -178,6 +178,22 @@ record Grid(Map<Coordinate, Tile> tiles, Tile start) {
         System.out.println("inside points: " + inside.size());
     }
 
+    static int countInteriorPoints(List<Coordinate> path) {
+        List<Coordinate> loop = new ArrayList<>(path);
+        loop.add(path.get(0));
+        int doubleArea = 0;
+        for (int i = 0; i + 1 < loop.size(); i++) {
+            var a = loop.get(i);
+            var b = loop.get(i + 1);
+            doubleArea += a.x() * b.y() - a.y() * b.x();
+        }
+        return (Math.abs(doubleArea) - path.size()) / 2 + 1;
+    }
+
+    void countInsidePointsAlternate(List<Coordinate> path) {
+        System.out.println("inside points (alternate method): " + countInteriorPoints(path));
+    }
+
     Tile tile(Coordinate coordinate) {
         return tiles.computeIfAbsent(coordinate, Tile::blank);
     }
@@ -189,9 +205,10 @@ public class Day10 {
     }
 }
 
-// parse 56 ms
-// walkAllHeadings 21 ms
-// countInsidePoints 951 ms
+// parse 40 ms
+// walkAllHeadings 16 ms
+// countInsidePoints 1027 ms
+// countInsidePointsAlternate 8 ms
 
 class Puzzle {
     void solve() throws IOException {
@@ -200,6 +217,7 @@ class Puzzle {
             var grid = Grid.parse(reader.lines());
             List<Coordinate> coordinates = grid.walkAllHeadings();
             grid.countInsidePoints(coordinates);
+            grid.countInsidePointsAlternate(coordinates);
         }
     }
 }
