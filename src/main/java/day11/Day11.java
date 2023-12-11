@@ -46,20 +46,20 @@ record Universe(Set<Galaxy> galaxies, Set<Integer> horizontalNonExpansions, Set<
         return new Universe(galaxies, h, v);
     }
 
-    int distance(Galaxy from, Galaxy to) {
+    long distance(Galaxy from, Galaxy to, long factor) {
         Set<Integer> xs = IntStream.rangeClosed(Integer.min(from.x(), to.x()), Integer.max(from.x(), to.x())).boxed().collect(Collectors.toSet());
         Set<Integer> ys = IntStream.rangeClosed(Integer.min(from.y(), to.y()), Integer.max(from.y(), to.y())).boxed().collect(Collectors.toSet());
-        int dx = xs.size() - 1;
-        int dy = ys.size() - 1;
+        long dx = xs.size() - 1;
+        long dy = ys.size() - 1;
         xs.removeAll(horizontalNonExpansions);
         ys.removeAll(verticalNonExpansions);
-        dx += xs.size();
-        dy += ys.size();
+        dx += xs.size() * (factor - 1);
+        dy += ys.size() * (factor - 1);
         return dx + dy;
     }
 
-    int sumDistances() {
-        return galaxies.stream().flatMap(a -> galaxies.stream().filter(b -> a.compareTo(b) < 0).map(b -> distance(a, b))).mapToInt(i -> i).sum();
+    long sumDistances(long factor) {
+        return galaxies.stream().flatMap(a -> galaxies.stream().filter(b -> a.compareTo(b) < 0).map(b -> distance(a, b, factor))).mapToLong(i -> i).sum();
     }
 }
 
@@ -68,7 +68,8 @@ class Puzzle {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day11/day11_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var universe = Universe.parse(reader.lines());
-            System.out.println(universe.sumDistances());
+            System.out.println(universe.sumDistances(2));
+            System.out.println(universe.sumDistances(1000000));
         }
     }
 }
