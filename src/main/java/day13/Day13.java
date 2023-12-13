@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -17,10 +19,9 @@ public class Day13 {
     }
 }
 
-record Mirror(List<String> rows, List<String> columns) {
-    static Mirror from(List<String> rows) {
-        List<String> columns = IntStream.range(0, rows.get(0).length()).mapToObj(i -> rows.stream().map(row -> row.charAt(i)).map(String::valueOf).collect(Collectors.joining())).toList();
-        return new Mirror(rows, columns);
+record Mirror(ArrayList<String> rows, Set<Long> solutions) {
+    static Mirror from(ArrayList<String> rows) {
+        return new Mirror(rows, new TreeSet<>());
     }
 
     private static boolean isReallyIt(final int i, List<String> strings) {
@@ -37,28 +38,52 @@ record Mirror(List<String> rows, List<String> columns) {
         return true;
     }
 
-    long summary() {
-        int x = axis(columns);
-        int y = axis(rows);
-        if (x == 0 && y == 0 || x > 0 && y > 0) {
-            throw new IllegalStateException();
-        }
-        return x + 100L * y;
+    private void findSolution() {
+        List<String> columns = IntStream.range(0, rows.get(0).length()).mapToObj(i -> rows.stream().map(row -> row.charAt(i)).map(String::valueOf).collect(Collectors.joining())).toList();
+        solutions.addAll(axes(columns, 1L));
+        solutions.addAll(axes(rows, 100L));
     }
 
-    private int axis(List<String> strings) {
-        List<Integer> axes = IntStream.range(1, strings.size()).filter(i -> strings.get(i - 1).equals(strings.get(i))).filter(i -> isReallyIt(i, strings)).boxed().toList();
-        return switch (axes.size()) {
-            case 0 -> 0;
-            case 1 -> axes.get(0);
-            default -> throw new IllegalStateException();
+    long summary() {
+        findSolution();
+        return solutions.stream().findFirst().orElseThrow();
+    }
+
+    private Set<Long> axes(List<String> strings, long factor) {
+        return IntStream.range(1, strings.size()).filter(i -> strings.get(i - 1).equals(strings.get(i))).filter(i -> isReallyIt(i, strings)).mapToObj(i -> factor * i).collect(Collectors.toSet());
+    }
+
+    private char toggle(char c) {
+        return switch (c) {
+            case '.' -> '#';
+            case '#' -> '.';
+            default -> throw new IllegalArgumentException();
         };
+    }
+
+    private Stream<String> smudge(String s) {
+        return IntStream.range(0, s.length()).mapToObj(i -> s.substring(0, i) + toggle(s.charAt(i)) + s.substring(i + 1));
+    }
+
+    long smudge() {
+        Long originalSolution = solutions.stream().findFirst().orElseThrow();
+        IntStream.range(0, rows.size()).boxed().forEach(i -> {
+            String save = rows.get(i);
+            smudge(save).forEach(s -> {
+                rows.set(i, s);
+                findSolution();
+            });
+            rows.set(i, save);
+        });
+        Set<Long> copy = new TreeSet<>(solutions);
+        copy.remove(originalSolution);
+        return copy.stream().findFirst().orElseThrow();
     }
 }
 
 record Mirrors(List<Mirror> mirrors) {
     static Mirrors parse(Stream<String> lines) {
-        List<List<String>> blocks = new ArrayList<>();
+        List<ArrayList<String>> blocks = new ArrayList<>();
         AtomicInteger counter = new AtomicInteger();
         lines.forEach(line -> {
             if (line.isEmpty()) {
@@ -76,6 +101,10 @@ record Mirrors(List<Mirror> mirrors) {
     long summary() {
         return mirrors.stream().mapToLong(Mirror::summary).sum();
     }
+
+    public long smudge() {
+        return mirrors.stream().mapToLong(Mirror::smudge).sum();
+    }
 }
 
 class Puzzle {
@@ -84,6 +113,7 @@ class Puzzle {
             var reader = new BufferedReader(new InputStreamReader(input));
             var mirrors = Mirrors.parse(reader.lines());
             System.out.println(mirrors.summary());
+            System.out.println(mirrors.smudge());
         }
     }
 }
