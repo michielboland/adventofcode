@@ -34,7 +34,8 @@ enum Heading {
 
 public class Day17 {
     public static void main(String[] args) throws IOException {
-        new Puzzle().solve();
+        new Puzzle().solve(false);
+        new Puzzle().solve(true);
     }
 }
 
@@ -97,7 +98,7 @@ record Target(Node node, Heading heading, int distance) implements Comparable<Ta
     }
 }
 
-record Grid(Map<Coordinate, Node> nodeMap, Queue<Target> queue, Node initial, Node destination) {
+record Grid(Map<Coordinate, Node> nodeMap, Queue<Target> queue, Node initial, Node destination, boolean ultra) {
     static void add(int heatLoss, Map<Coordinate, Node> NodeMap, int x, int y) {
         Coordinate coordinate = new Coordinate(x, y);
         NodeMap.put(coordinate, new Node(coordinate, heatLoss));
@@ -108,11 +109,11 @@ record Grid(Map<Coordinate, Node> nodeMap, Queue<Target> queue, Node initial, No
         line.chars().forEach(c -> add(c - '0', NodeMap, xc.getAndIncrement(), y));
     }
 
-    static Grid parse(Stream<String> lines) {
+    static Grid parse(Stream<String> lines, boolean ultra) {
         SortedMap<Coordinate, Node> nodeMap = new TreeMap<>();
         var yc = new AtomicInteger();
         lines.forEach(line -> parse(line, nodeMap, yc.getAndIncrement()));
-        return new Grid(nodeMap, new PriorityQueue<>(), nodeMap.get(nodeMap.firstKey()), nodeMap.get(nodeMap.lastKey()));
+        return new Grid(nodeMap, new PriorityQueue<>(), nodeMap.get(nodeMap.firstKey()), nodeMap.get(nodeMap.lastKey()), ultra);
     }
 
     void process(Target target) {
@@ -120,12 +121,15 @@ record Grid(Map<Coordinate, Node> nodeMap, Queue<Target> queue, Node initial, No
         for (Heading next : target.heading().next()) {
             int heatLoss = 0;
             Node node = target.node();
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 3 || ultra && i < 10; i++) {
                 node = nodeMap.get(next.nextFunction.apply(node.coordinate));
                 if (node == null) {
                     break;
                 }
                 heatLoss += node.heatLoss;
+                if (i < 3 && ultra) {
+                    continue;
+                }
                 int distanceToNeighbor = current.distanceMap.get(target.heading()) + heatLoss;
                 if (!node.distanceMap.containsKey(next) || distanceToNeighbor < node.distanceMap.get(next)) {
                     node.distanceMap.put(next, distanceToNeighbor);
@@ -153,10 +157,10 @@ record Grid(Map<Coordinate, Node> nodeMap, Queue<Target> queue, Node initial, No
 }
 
 class Puzzle {
-    void solve() throws IOException {
+    void solve(boolean ultra) throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day17/day17_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
-            var grid = Grid.parse(reader.lines());
+            var grid = Grid.parse(reader.lines(), ultra);
             System.out.println(grid.solve());
         }
     }
