@@ -3,6 +3,7 @@ package day20;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -34,27 +36,21 @@ public class Day20 {
 }
 
 record Pulse(Signal signal, long id, Module sender, Module receiver) {
-    @Override
-    public String toString() {
-        return sender.name() + " -" + signal.name().toLowerCase() + "-> " + receiver.name();
-    }
 }
 
-record Coordinator(AtomicLong lows, AtomicLong highs, Deque<Pulse> sendQueue, Deque<Pulse> processQueue) {
-    private static final AtomicBoolean WHAT = new AtomicBoolean();
-
-    Coordinator {
-        if (WHAT.getAndSet(true)) {
-            throw new IllegalStateException();
-        }
-    }
-
-    Coordinator() {
-        this(new AtomicLong(), new AtomicLong(), new ArrayDeque<>(), new ArrayDeque<>());
+record Coordinator(AtomicLong lows, AtomicLong highs, Deque<Pulse> sendQueue, Deque<Pulse> processQueue,
+                   AtomicLong buttonPresses, Observer observer) {
+    Coordinator(Observer observer) {
+        this(new AtomicLong(), new AtomicLong(), new ArrayDeque<>(), new ArrayDeque<>(), new AtomicLong(), observer);
     }
 
     void queue(Pulse pulse) {
-        //System.out.println(pulse);
+        if (pulse.sender() instanceof Button) {
+            buttonPresses.incrementAndGet();
+        }
+        if (pulse.signal() == Signal.HIGH) {
+            observer.inspect(buttonPresses.get(), pulse.sender());
+        }
         sendQueue.addFirst(pulse);
     }
 
@@ -178,7 +174,7 @@ class Conjunction extends AbstractModule {
     }
 }
 
-record Modules(Map<String, ? extends Module> modules, Coordinator coordinator, Button button) {
+record Modules(Coordinator coordinator, Button button) {
     static final String BROADCASTER = "broadcaster";
     static final String BUTTON = "button";
     private static final Pattern PATTERN = Pattern.compile("([&%]?)([a-z]+) -> (.*)");
@@ -207,7 +203,8 @@ record Modules(Map<String, ? extends Module> modules, Coordinator coordinator, B
         dummyNames.removeAll(flipFlopReceivers.keySet());
         dummyNames.removeAll(conjunctionReceivers.keySet());
         Map<String, AbstractModule> modules = new HashMap<>();
-        var coordinator = new Coordinator();
+        var observer = new Observer();
+        var coordinator = new Coordinator(observer);
         dummyNames.forEach(n -> modules.put(n, new Dummy(n, coordinator)));
         conjunctionReceivers.keySet().forEach(n -> modules.put(n, new Conjunction(n, coordinator)));
         flipFlopReceivers.keySet().forEach(n -> modules.put(n, new FlipFlop(n, coordinator)));
@@ -224,24 +221,48 @@ record Modules(Map<String, ? extends Module> modules, Coordinator coordinator, B
                 conjunction.addSender(module);
             }
         }));
-        return new Modules(modules, coordinator, button);
+        Set<String> preRx = modules.values().stream().filter(m -> m.receivers.stream().anyMatch(r -> r.name().equals("rx"))).map(Module::name).collect(Collectors.toSet());
+        observer.watchThese().addAll(modules.values().stream().filter(m -> m.receivers.stream().anyMatch(r -> preRx.contains(r.name()))).map(Module::name).map(modules::get).collect(Collectors.toSet()));
+        return new Modules(coordinator, button);
     }
 
-    void pushButton() {
-        IntStream.range(0, 1000).forEach(i -> {
+    void pushButton(int n) {
+        IntStream.range(0, n).forEach(i -> {
             button.push();
             coordinator.runQueue();
         });
     }
 }
 
+record Observer(Set<Module> watchThese, Map<Module, Long> seen) {
+    Observer() {
+        this(new HashSet<>(), new HashMap<>());
+    }
+
+    BigInteger lcm(BigInteger a, BigInteger b) {
+        return a == null ? b : a.multiply(b).divide(a.gcd(b));
+    }
+
+    void inspect(long buttonPresses, Module sender) {
+        if (watchThese.contains(sender)) {
+            seen.put(sender, buttonPresses);
+            watchThese.remove(sender);
+            if (watchThese.isEmpty()) {
+                System.out.println(seen.values().stream().map(l -> new BigInteger(String.valueOf(l))).reduce(null, this::lcm));
+            }
+        }
+    }
+}
+
+
 class Puzzle {
     void solve() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day20/day20_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var modules = Modules.parse(reader.lines());
-            modules.pushButton();
+            modules.pushButton(1000);
             System.out.println(modules.coordinator().highs().get() * modules.coordinator().lows().get());
+            modules.pushButton(3000);
         }
     }
 }
