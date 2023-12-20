@@ -6,10 +6,14 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 enum Category {
@@ -29,42 +33,129 @@ enum Category {
     }
 }
 
-@FunctionalInterface
-interface RuleMatcher {
-    boolean matches(Part part);
-}
-
-@FunctionalInterface
-interface IntComparator {
-    boolean compare(int a, int b);
-}
-
 public class Day19 {
     public static void main(String[] args) throws IOException {
         new Puzzle().solve();
     }
 }
 
-record Rule(RuleMatcher matcher, String next) {
+record Range(long from, long to) {
+    static final long MIN = 1L;
+    static final long MAX = 4001L;
+    static final Range ALL = new Range(MIN, MAX);
+
+    static Range lessThan(long to) {
+        return new Range(MIN, to);
+    }
+
+    static Range notLessThan(long to) {
+        return new Range(to, MAX);
+    }
+
+    static Range greaterThan(long from) {
+        return new Range(from + 1, MAX);
+    }
+
+    static Range notGreaterThan(long from) {
+        return new Range(MIN, from + 1);
+    }
+
+    static Range from(long value) {
+        return new Range(value, value + 1);
+    }
+
+    boolean intersects(Range other) {
+        return Long.max(from, other.from) < Long.min(to, other.to);
+    }
+
+    Range intersection(Range other) {
+        return new Range(Long.max(from, other.from), Long.min(to, other.to));
+    }
+
+    long size() {
+        return to - from;
+    }
+
+    @Override
+    public String toString() {
+        return "[" + from + "," + to + ")";
+    }
+}
+
+record Tesseract(Map<Category, Range> ranges) {
+    static final Tesseract ALL = new Tesseract(Map.of(
+            Category.EXTREMELY_COOL_LOOKING, Range.ALL,
+            Category.MUSICAL, Range.ALL,
+            Category.AERODYNAMIC, Range.ALL,
+            Category.SHINY, Range.ALL));
+
+    static Tesseract build(Category category, Function<Long, Range> f, long value) {
+        return new Tesseract(Arrays.stream(Category.values()).map(c -> new CR(c, c == category ? f.apply(value) : Range.ALL)).collect(Collectors.toMap(CR::category, CR::range)));
+    }
+
+    static Tesseract lessThan(Category category, long to) {
+        return build(category, Range::lessThan, to);
+    }
+
+    static Tesseract greaterThan(Category category, long from) {
+        return build(category, Range::greaterThan, from);
+    }
+
+    static Tesseract notLessThan(Category category, long to) {
+        return build(category, Range::notLessThan, to);
+    }
+
+    static Tesseract notGreaterThan(Category category, long from) {
+        return build(category, Range::notGreaterThan, from);
+    }
+
+    static Tesseract from(Part part) {
+        return new Tesseract(Arrays.stream(Category.values()).map(c -> new CR(c, Range.from(part.ratings().get(c)))).collect(Collectors.toMap(CR::category, CR::range)));
+    }
+
+    boolean intersects(Tesseract other) {
+        return Arrays.stream(Category.values()).allMatch(c -> ranges.get(c).intersects(other.ranges.get(c)));
+    }
+
+    Tesseract intersection(Tesseract other) {
+        return other == null ? null : new Tesseract(Arrays.stream(Category.values()).map(c -> new CR(c, ranges.get(c).intersection(other.ranges.get(c)))).collect(Collectors.toMap(CR::category, CR::range)));
+    }
+
+    long size() {
+        return ranges.values().stream().mapToLong(Range::size).reduce(1, (a, b) -> a * b);
+    }
+
+    @Override
+    public String toString() {
+        return Arrays.stream(Category.values()).map(c -> c.symbol + "=" + ranges.get(c)).collect(Collectors.joining(","));
+    }
+
+    record CR(Category category, Range range) {
+    }
+}
+
+record Rule(Tesseract tesseract, Tesseract complement, String next) {
     private static final Pattern PATTERN = Pattern.compile("(.)([<>])(\\d+):([a-z]+|A|R)");
     private static final Pattern SIMPLE_PATTERN = Pattern.compile("([a-z]+|A|R)");
-    private static final Map<String, IntComparator> LG = Map.of("<", (a, b) -> a < b, ">", (a, b) -> a > b);
 
     static Rule from(String s) {
         var m = PATTERN.matcher(s);
         if (m.matches()) {
             var category = Category.from(m.group(1));
-            var comparator = Objects.requireNonNull(LG.get(m.group(2)));
-            var value = Integer.parseInt(m.group(3));
-            var next = m.group(4);
-            return new Rule(p -> comparator.compare(p.ratings().get(category), value), next);
+            var value = Long.parseLong(m.group(3));
+            var tesseract = m.group(2).equals("<") ? Tesseract.lessThan(category, value) : Tesseract.greaterThan(category, value);
+            var complement = m.group(2).equals("<") ? Tesseract.notLessThan(category, value) : Tesseract.notGreaterThan(category, value);
+            return new Rule(tesseract, complement, m.group(4));
         }
         var sm = SIMPLE_PATTERN.matcher(s);
         if (!sm.matches()) {
             throw new IllegalArgumentException();
         }
-        return new Rule(p -> true, sm.group(1));
+        return new Rule(Tesseract.ALL, null, sm.group(1));
     }
+}
+
+record TS(Tesseract tesseract, String next) {
 }
 
 record Workflow(String name, List<Rule> rules) {
@@ -78,12 +169,19 @@ record Workflow(String name, List<Rule> rules) {
         return new Workflow(m.group(1), Arrays.stream(m.group(2).split(",")).map(Rule::from).toList());
     }
 
-    String process(Part part) {
-        return rules.stream().filter(r -> r.matcher().matches(part)).findFirst().map(Rule::next).orElseThrow();
+    List<TS> process(Tesseract tesseract) {
+        List<TS> r = new ArrayList<>();
+        for (var rule : rules) {
+            if (tesseract.intersects(rule.tesseract())) {
+                r.add(new TS(tesseract.intersection(rule.tesseract()), rule.next()));
+            }
+            tesseract = tesseract.intersection(rule.complement());
+        }
+        return r;
     }
 }
 
-record Part(Map<Category, Integer> ratings) {
+record Part(Map<Category, Long> ratings) {
     private static final Pattern PATTERN = Pattern.compile("\\{(.*)}");
     private static final Pattern P2 = Pattern.compile("(.)=(\\d+)");
 
@@ -92,19 +190,19 @@ record Part(Map<Category, Integer> ratings) {
         if (!m.matches()) {
             throw new IllegalArgumentException();
         }
-        Map<Category, Integer> ratings = new HashMap<>();
+        Map<Category, Long> ratings = new HashMap<>();
         Arrays.stream(m.group(1).split(",")).forEach(s -> {
             var m2 = P2.matcher(s);
             if (!m2.matches()) {
                 throw new IllegalArgumentException();
             }
-            ratings.put(Category.from(m2.group(1)), Integer.parseInt(m2.group(2)));
+            ratings.put(Category.from(m2.group(1)), Long.parseLong(m2.group(2)));
         });
         return new Part(ratings);
     }
 
-    int sum() {
-        return ratings.values().stream().mapToInt(i -> i).sum();
+    long sum() {
+        return ratings.values().stream().mapToLong(l -> l).sum();
     }
 }
 
@@ -129,22 +227,33 @@ record WorkflowsAndParts(Map<String, Workflow> workflows, List<Part> parts) {
         return new WorkflowsAndParts(workflows, parts);
     }
 
-    boolean isAccepted(Part part) {
-        Workflow workflow = workflows.get("in");
-        do {
-            var next = workflow.process(part);
-            if (next.equals("A")) {
-                return true;
-            } else if (next.equals("R")) {
-                return false;
-            } else {
-                workflow = workflows.get(next);
+    Set<Tesseract> process(Workflow workflow, Tesseract tesseract) {
+        Set<Tesseract> tesseracts = new HashSet<>();
+        for (var ts : workflow.process(tesseract)) {
+            if (ts.next().equals("A")) {
+                tesseracts.add(ts.tesseract());
+            } else if (!ts.next().equals("R")) {
+                tesseracts.addAll(process(workflows.get(ts.next()), ts.tesseract()));
             }
-        } while (true);
+        }
+        return tesseracts;
     }
 
-    int process() {
-        return parts.stream().filter(this::isAccepted).mapToInt(Part::sum).sum();
+    long process() {
+        var accepted = process(workflows.get("in"), Tesseract.ALL);
+        return parts.stream().filter(part -> accepted.stream().anyMatch(tesseract -> tesseract.intersects(Tesseract.from(part)))).mapToLong(Part::sum).sum();
+    }
+
+    long totalSize() {
+        Set<Tesseract> all = process(workflows.get("in"), Tesseract.ALL);
+        Set<Tesseract> tmp = new HashSet<>(all);
+        Set<Tesseract> intersections = all.stream().flatMap(t1 -> {
+            tmp.remove(t1);
+            return tmp.stream().filter(t1::intersects).map(t1::intersection);
+        }).collect(Collectors.toSet());
+        // We don't have three different tesseracts with nonempty intersection, so we don't have
+        // to do complicated stuff with the inclusion/exclusion principle.
+        return all.stream().mapToLong(Tesseract::size).sum() - intersections.stream().mapToLong(Tesseract::size).sum();
     }
 }
 
@@ -154,6 +263,7 @@ class Puzzle {
             var reader = new BufferedReader(new InputStreamReader(input));
             var workflowAndParts = WorkflowsAndParts.parse(reader.lines());
             System.out.println(workflowAndParts.process());
+            System.out.println(workflowAndParts.totalSize());
         }
     }
 }
