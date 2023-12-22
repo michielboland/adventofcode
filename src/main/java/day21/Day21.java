@@ -4,15 +4,16 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Deque;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 enum Heading {
@@ -42,40 +43,15 @@ record Coordinate(int x, int y) {
     }
 }
 
-record Plot(Coordinate coordinate) {
-    Set<Coordinate> findNeighbors(Map<Coordinate, Plot> plots) {
-        return findNeighbors(64, plots, new HashMap<>()).stream().map(Plot::coordinate).collect(Collectors.toSet());
-    }
-
-    private Set<Plot> findNeighbors(int steps, Map<Coordinate, Plot> plots, Map<Key, Set<Plot>> neighbors) {
-        Key key = new Key(this, steps);
-        if (neighbors.containsKey(key)) {
-            return neighbors.get(key);
-        }
-        Set<Plot> newNeighbors;
-        if (steps > 1) {
-            var a = 1 << (30 - Integer.numberOfLeadingZeros(steps));
-            var b = steps - a;
-            newNeighbors = findNeighbors(a, plots, neighbors).stream().flatMap(p -> p.findNeighbors(b, plots, neighbors).stream()).collect(Collectors.toSet());
-        } else {
-            newNeighbors = Arrays.stream(Heading.values()).map(h -> h.mover.apply(coordinate)).filter(plots::containsKey).map(plots::get).collect(Collectors.toSet());
-        }
-        neighbors.put(key, newNeighbors);
-        return newNeighbors;
-    }
-
-    private record Key(Plot plot, Integer value) {
-    }
-}
-
-record Garden(Map<Coordinate, Plot> plots, Set<Coordinate> rocks, Coordinate startPosition, int width, int height) {
+record Garden(Set<Coordinate> plots, Set<Coordinate> rocks, Set<Coordinate> reachable, Coordinate startPosition,
+              int width, int height) {
     static Garden parse(Stream<String> lines) {
-        var plots = new HashMap<Coordinate, Plot>();
+        var plots = new HashSet<Coordinate>();
         var rocks = new HashSet<Coordinate>();
         var start = new AtomicReference<Coordinate>();
         var yc = new AtomicInteger();
         var width = lines.mapToInt(l -> {
-            var y = yc.incrementAndGet();
+            var y = yc.getAndIncrement();
             var xc = new AtomicInteger();
             l.chars().forEach(c -> {
                 var x = xc.getAndIncrement();
@@ -85,18 +61,57 @@ record Garden(Map<Coordinate, Plot> plots, Set<Coordinate> rocks, Coordinate sta
                         if (c == 'S') {
                             start.getAndSet(coordinate);
                         }
-                        plots.put(coordinate, new Plot(coordinate));
+                        plots.add(coordinate);
                     }
                     case '#' -> rocks.add(coordinate);
                 }
             });
             return xc.get();
         }).max().orElseThrow();
-        return new Garden(plots, rocks, start.get(), width, yc.get());
+        return new Garden(plots, rocks, new HashSet<>(), start.get(), width, yc.get()).fill();
     }
 
-    int solve() {
-        return plots.get(startPosition).findNeighbors(plots).size();
+    static int mod(int a, int b) {
+        int r = a % b;
+        return r < 0 ? r + b : r;
+    }
+
+    long solve(int n) {
+        return IntStream.rangeClosed(-n, n)
+                .mapToLong(y -> IntStream.rangeClosed(-n, n)
+                        .filter(x -> (x + y & 1) == (n & 1))
+                        .filter(x -> Math.abs(x) + Math.abs(y) <= n)
+                        .filter(x -> reachable(x, y))
+                        .count())
+                .sum();
+    }
+
+    private Coordinate warp(Coordinate coordinate) {
+        return new Coordinate(mod(coordinate.x(), width), mod(coordinate.y(), height));
+    }
+
+    boolean reachable(int x, int y) {
+        var c = warp(new Coordinate(x + startPosition.x(), y + startPosition.y()));
+        if (rocks.contains(c)) {
+            return false;
+        }
+        return reachable.contains(c);
+    }
+
+    private Garden fill() {
+        Deque<Coordinate> deque = new LinkedList<>();
+        deque.addLast(startPosition);
+        while (!deque.isEmpty()) {
+            var coordinate = deque.removeFirst();
+            reachable.add(coordinate);
+            Set<Coordinate> next = Arrays.stream(Heading.values())
+                    .map(h -> h.mover.apply(coordinate))
+                    .filter(c -> plots.contains(c) && !reachable.contains(c))
+                    .collect(Collectors.toSet());
+            reachable.addAll(next);
+            deque.addAll(next);
+        }
+        return this;
     }
 }
 
@@ -105,7 +120,20 @@ class Puzzle {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day21/day21_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var garden = Garden.parse(reader.lines());
-            System.out.println(garden.solve());
+            System.out.println(garden.solve(64));
+            var width = garden.width();
+            var halfWidth = width / 2;
+            long[] f = new long[3];
+            for (int i = 0; i < 3; i++) {
+                var m = halfWidth + 2 * i * width;
+                var j = garden.solve(m);
+                f[i] = j;
+            }
+            var a = (f[2] + f[0]) / 2 - f[1];
+            var b = (f[2] - f[0]) / 2;
+            var c = f[1];
+            Function<Long, Long> polynomial = x -> a * x * x + b * x + c;
+            System.out.println(polynomial.apply((26501365L - halfWidth) / (2L * width) - 1));
         }
     }
 }
