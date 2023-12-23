@@ -4,13 +4,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 record Coordinate2(int x, int y) implements Comparable<Coordinate2> {
@@ -68,7 +68,7 @@ record Coordinate3(int x, int y, int z) implements Comparable<Coordinate3> {
     }
 }
 
-record Brick(Coordinate3 bottomBackLeft, Coordinate3 topFrontRight) {
+record Brick(Coordinate3 bottomBackLeft, Coordinate3 topFrontRight) implements Comparable<Brick> {
     static Brick parse(String s) {
         var split = s.split("~");
         return new Brick(Coordinate3.parse(split[0]), Coordinate3.parse(split[1]));
@@ -98,6 +98,11 @@ record Brick(Coordinate3 bottomBackLeft, Coordinate3 topFrontRight) {
         var positions = bottom() - top - 1;
         return new Brick(bottomBackLeft.moveDown(positions), topFrontRight.moveDown(positions));
     }
+
+    @Override
+    public int compareTo(Brick o) {
+        return bottomBackLeft.compareTo(o.bottomBackLeft);
+    }
 }
 
 record Bricks(SortedMap<Coordinate3, Brick> initialPositions, SortedMap<Coordinate3, Brick> restingPositions,
@@ -105,7 +110,7 @@ record Bricks(SortedMap<Coordinate3, Brick> initialPositions, SortedMap<Coordina
     static Bricks parse(Stream<String> lines) {
         SortedMap<Coordinate3, Brick> initialPositions = new TreeMap<>();
         lines.map(Brick::parse).forEach(brick -> initialPositions.put(brick.bottomBackLeft(), brick));
-        return new Bricks(initialPositions, new TreeMap<>(), new HashMap<>(), new HashMap<>());
+        return new Bricks(initialPositions, new TreeMap<>(), new TreeMap<>(), new TreeMap<>());
     }
 
     boolean canBeRemoved(Brick brick) {
@@ -120,7 +125,7 @@ record Bricks(SortedMap<Coordinate3, Brick> initialPositions, SortedMap<Coordina
         return true;
     }
 
-    void solve() {
+    long solve() {
         var i = initialPositions.values().iterator();
         while (i.hasNext()) {
             var brick = i.next();
@@ -128,12 +133,39 @@ record Bricks(SortedMap<Coordinate3, Brick> initialPositions, SortedMap<Coordina
             var top = restingPositions.values().stream().filter(b -> b.isBelow(brick)).mapToInt(Brick::top).max().orElse(0);
             var restingBrick = brick.moveAbove(top);
             restingPositions.values().stream().filter(b -> b.isDirectlyBelow(restingBrick)).forEach(supportingBrick -> {
-                supports.computeIfAbsent(supportingBrick, unused -> new HashSet<>()).add(restingBrick);
-                supportedBy.computeIfAbsent(restingBrick, unused -> new HashSet<>()).add(supportingBrick);
+                supports.computeIfAbsent(supportingBrick, unused -> new TreeSet<>()).add(restingBrick);
+                supportedBy.computeIfAbsent(restingBrick, unused -> new TreeSet<>()).add(supportingBrick);
             });
             restingPositions.put(restingBrick.bottomBackLeft(), restingBrick);
         }
-        System.out.println(restingPositions.values().stream().filter(this::canBeRemoved).count());
+        return restingPositions.values().stream().filter(this::canBeRemoved).count();
+    }
+
+    boolean willFall(Brick brick, Set<Brick> removed) {
+        Set<Brick> remaining = new TreeSet<>(supportedBy.get(brick));
+        remaining.removeAll(removed);
+        return remaining.isEmpty();
+    }
+
+    void topple(Brick brick, Set<Brick> removed) {
+        removed.add(brick);
+        if (!supports.containsKey(brick)) {
+            return;
+        }
+        var next = supports.get(brick).stream().filter(b -> willFall(b, removed)).collect(Collectors.toSet());
+        next.removeAll(removed);
+        removed.addAll(next);
+        next.forEach(b -> topple(b, removed));
+    }
+
+    int topple(Brick brick) {
+        Set<Brick> removed = new TreeSet<>();
+        topple(brick, removed);
+        return removed.size() - 1;
+    }
+
+    int solve2() {
+        return supports.keySet().stream().mapToInt(this::topple).sum();
     }
 }
 
@@ -142,7 +174,8 @@ class Puzzle {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("/day22/day22_input"))) {
             var reader = new BufferedReader(new InputStreamReader(input));
             var bricks = Bricks.parse(reader.lines());
-            bricks.solve();
+            System.out.println(bricks.solve());
+            System.out.println(bricks.solve2());
         }
     }
 }
