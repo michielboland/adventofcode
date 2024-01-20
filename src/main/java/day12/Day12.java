@@ -3,9 +3,10 @@ package day12;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -70,6 +71,8 @@ record GroupSizesOfDamagedSprings(List<Integer> sizes) {
 }
 
 record ConditionRecord(SpringConditions springConditions, GroupSizesOfDamagedSprings groupSizesOfDamagedSprings) {
+    private static final Map<ConditionRecord, Long> CACHE = new HashMap<>();
+
     static ConditionRecord from(String line, int n) {
         var parts = line.split(" ");
         return new ConditionRecord(SpringConditions.from(parts[0], n), GroupSizesOfDamagedSprings.from(parts[1], n));
@@ -79,26 +82,31 @@ record ConditionRecord(SpringConditions springConditions, GroupSizesOfDamagedSpr
         return new ConditionRecord(springConditions.sub(fromSpring, toSpring), groupSizesOfDamagedSprings.sub(fromGroup, toGroup));
     }
 
-    BigInteger arrangements() {
+    long arrangements() {
+        Long cached = CACHE.get(this);
+        if (cached != null) {
+            return cached;
+        }
         int groups = groupSizesOfDamagedSprings.sizes().size();
         int springs = springConditions.conditions().size();
-        BigInteger total;
+        long total;
         if (groups == 0) {
-            total = springConditions.matches() ? BigInteger.ONE : BigInteger.ZERO;
+            total = springConditions.matches() ? 1L : 0L;
         } else {
-            total = BigInteger.ZERO;
+            total = 0L;
             int half = groups >> 1;
             Integer halfSize = groupSizesOfDamagedSprings.sizes().get(half);
             int leftMargin = groups > 1 ? IntStream.range(0, half).map(i -> groupSizesOfDamagedSprings.sizes().get(i) + 1).sum() : 0;
             int rightMargin = IntStream.range(half + 1, groups).map(i -> groupSizesOfDamagedSprings.sizes().get(i) + 1).sum() - 1;
             for (int i = leftMargin; i + halfSize < springs - rightMargin; i++) {
                 if (springConditions.matches(i, i + halfSize)) {
-                    BigInteger leftTotal = i - 1 > 0 ? sub(0, i - 1, 0, half).arrangements() : BigInteger.ONE;
-                    BigInteger rightTotal = i + halfSize + 1 < springs ? sub(i + halfSize + 1, springs, half + 1, groups).arrangements() : BigInteger.ONE;
-                    total = total.add(leftTotal.multiply(rightTotal));
+                    long leftTotal = i - 1 > 0 ? sub(0, i - 1, 0, half).arrangements() : 1L;
+                    long rightTotal = i + halfSize + 1 < springs ? sub(i + halfSize + 1, springs, half + 1, groups).arrangements() : 1L;
+                    total = total + leftTotal * rightTotal;
                 }
             }
         }
+        CACHE.put(this, total);
         return total;
     }
 }
@@ -108,8 +116,8 @@ record Springs(List<ConditionRecord> conditionRecords) {
         return new Springs(lines.map(line -> ConditionRecord.from(line, n)).toList());
     }
 
-    BigInteger arrangements() {
-        return conditionRecords.stream().map(ConditionRecord::arrangements).reduce(BigInteger.ZERO, BigInteger::add);
+    long arrangements() {
+        return conditionRecords.stream().mapToLong(ConditionRecord::arrangements).sum();
     }
 }
 
