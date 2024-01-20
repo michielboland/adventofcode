@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -147,7 +149,7 @@ record Bricks(SortedMap<Coordinate3, Brick> initialPositions, SortedMap<Coordina
         return remaining.isEmpty();
     }
 
-    void topple(Brick brick, Set<Brick> removed) {
+    void topple(Brick brick, Set<Brick> removed, Deque<Brick> queue) {
         removed.add(brick);
         if (!supports.containsKey(brick)) {
             return;
@@ -155,12 +157,16 @@ record Bricks(SortedMap<Coordinate3, Brick> initialPositions, SortedMap<Coordina
         var next = supports.get(brick).stream().filter(b -> willFall(b, removed)).collect(Collectors.toSet());
         next.removeAll(removed);
         removed.addAll(next);
-        next.forEach(b -> topple(b, removed));
+        queue.addAll(next);
     }
 
     int topple(Brick brick) {
         Set<Brick> removed = new TreeSet<>();
-        topple(brick, removed);
+        Deque<Brick> queue = new LinkedList<>();
+        queue.add(brick);
+        while (!queue.isEmpty()) {
+            topple(queue.removeFirst(), removed, queue);
+        }
         return removed.size() - 1;
     }
 
