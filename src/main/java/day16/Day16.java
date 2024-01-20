@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -119,12 +121,21 @@ record Grid(Map<Coordinate, Tile> tileMap, Set<CH> visitedCoordinateHeadings) {
     }
 
     void illuminate(Coordinate coordinate, Heading heading) {
+        var queue = new LinkedList<CH>();
+        queue.add(new CH(coordinate, heading));
+        while (!queue.isEmpty()) {
+            var ch = queue.removeFirst();
+            illuminate(queue, ch.coordinate(), ch.heading());
+        }
+    }
+
+    private void illuminate(Deque<CH> queue, Coordinate coordinate, Heading heading) {
         while (notVisited(coordinate, heading)) {
             var tile = tileMap.get(coordinate);
             var nextHeading = tile.nextHeading.apply(heading);
             if (!nextHeading.split.isEmpty()) {
                 for (var h : nextHeading.split) {
-                    illuminate(h.head.apply(coordinate), h);
+                    queue.add(new CH(h.head.apply(coordinate), h));
                 }
                 return;
             }
