@@ -1,0 +1,10 @@
+#!/bin/sh
+sed '
+s/\([1-9]\).*/\1/
+s/.*\(.\)$/\1/
+' input > left
+rev input | sed '
+s/\([1-9]\).*/\1/
+s/.*\(.\)$/\1/
+' > right
+paste left right | tr -d '\t' | awk '{ t  += $1 } END { print t }'
