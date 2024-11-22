@@ -26,3 +26,4 @@ s/enin/9/
 s/.*\(.\)$/\1/
 ' > right
 paste left right | tr -d '\t' | awk '{ t  += $1 } END { print t }'
+rm left right
