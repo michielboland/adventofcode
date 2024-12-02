@@ -21,7 +21,7 @@ class Puzzle {
             var reader = new BufferedReader(new InputStreamReader(input));
             var reports = Reports.parse(reader.lines());
             System.out.println(reports.numberOfSafeReports());
-            System.out.println(reports.numberOfSafeReportsAfterDisardingOne());
+            System.out.println(reports.numberOfSafeReportsAfterDiscardingOne());
         }
     }
 }
@@ -82,7 +82,7 @@ record Reports(List<Report> reports) {
                 .filter(Report::isSafe).count();
     }
 
-    long numberOfSafeReportsAfterDisardingOne() {
+    long numberOfSafeReportsAfterDiscardingOne() {
         return reports.stream()
                 .filter(Report::isSafeAfterDiscardingOne).count();
     }
