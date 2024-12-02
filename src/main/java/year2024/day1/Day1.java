@@ -1,4 +1,4 @@
-package year2024;
+package year2024.day1;
 
 import java.io.BufferedReader;
 import java.io.IOException;
