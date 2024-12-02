@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class Day2 {
@@ -20,6 +21,7 @@ class Puzzle {
             var reader = new BufferedReader(new InputStreamReader(input));
             var reports = Reports.parse(reader.lines());
             System.out.println(reports.numberOfSafeReports());
+            System.out.println(reports.numberOfSafeReportsAfterDisardingOne());
         }
     }
 }
@@ -27,6 +29,20 @@ class Puzzle {
 record Report(List<Integer> levels) {
     static Report from(String line) {
         return new Report(Arrays.stream(line.split("\\s+")).map(Integer::valueOf).toList());
+    }
+
+    private Report discard(int which) {
+        return new Report(
+                IntStream.range(0, levels.size())
+                        .filter(i -> i != which)
+                        .mapToObj(levels::get)
+                        .toList()
+        );
+    }
+
+    private Stream<Report> discardOne() {
+        return IntStream.range(0, levels.size())
+                .mapToObj(this::discard);
     }
 
     boolean isSafe() {
@@ -47,6 +63,13 @@ record Report(List<Integer> levels) {
         }
         return true;
     }
+
+    boolean isSafeAfterDiscardingOne() {
+        if (isSafe()) {
+            return true;
+        }
+        return discardOne().anyMatch(Report::isSafe);
+    }
 }
 
 record Reports(List<Report> reports) {
@@ -56,7 +79,11 @@ record Reports(List<Report> reports) {
 
     long numberOfSafeReports() {
         return reports.stream()
-                .peek(r -> System.out.println(r + " safe: " + r.isSafe()))
                 .filter(Report::isSafe).count();
+    }
+
+    long numberOfSafeReportsAfterDisardingOne() {
+        return reports.stream()
+                .filter(Report::isSafeAfterDiscardingOne).count();
     }
 }
