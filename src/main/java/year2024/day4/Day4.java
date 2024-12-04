@@ -26,6 +26,25 @@ enum Direction {
     }
 }
 
+enum X {
+    NORTH(Direction.NORTHWEST, Direction.NORTHEAST, Direction.SOUTHWEST, Direction.SOUTHEAST),
+    EAST(Direction.NORTHEAST, Direction.SOUTHEAST, Direction.NORTHWEST, Direction.SOUTHWEST),
+    SOUTH(Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHEAST, Direction.NORTHWEST),
+    WEST(Direction.SOUTHWEST, Direction.NORTHWEST, Direction.SOUTHEAST, Direction.NORTHEAST);
+
+    final Direction m1;
+    final Direction m2;
+    final Direction s1;
+    final Direction s2;
+
+    X(Direction m1, Direction m2, Direction s1, Direction s2) {
+        this.m1 = m1;
+        this.m2 = m2;
+        this.s1 = s1;
+        this.s2 = s2;
+    }
+}
+
 public class Day4 {
     public static void main(String[] args) throws IOException {
         new Puzzle().solve();
@@ -70,13 +89,26 @@ class Puzzle {
 
     void solve() {
         int hits = 0;
-        Set<Coordinate> startingCoordinates = map.get('X');
-        for (var c : startingCoordinates) {
+        for (var c : map.get('X')) {
             for (var d : Direction.values()) {
                 hits += hit(c, d, 'M');
             }
         }
         System.out.println(hits);
+        hits = 0;
+        for (var c : map.get('A')) {
+            for (var x : X.values()) {
+                if (mas(c, x)) hits++;
+            }
+        }
+        System.out.println(hits);
+    }
+
+    private boolean mas(Coordinate c, X x) {
+        return map.get('M').contains(x.m1.from(c))
+                && map.get('M').contains(x.m2.from(c))
+                && map.get('S').contains(x.s1.from(c))
+                && map.get('S').contains(x.s2.from(c));
     }
 
     private int hit(Coordinate c, Direction d, char nextChar) {
