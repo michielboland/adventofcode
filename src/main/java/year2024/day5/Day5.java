@@ -25,6 +25,7 @@ class Puzzle {
             reader.lines().forEachOrdered(instructions::parse);
         }
         instructions.printSumOfMiddlePagesOfCorrectlyOrderedUpdates();
+        instructions.printSumOfMiddlePagesOfIncorrectlyOrderedUpdatesAfterRearranging();
     }
 }
 
@@ -49,6 +50,10 @@ class Instructions {
     void printSumOfMiddlePagesOfCorrectlyOrderedUpdates() {
         System.out.println(manuals.stream().filter(m -> m.satisfies(orders)).mapToInt(Manual::middle).sum());
     }
+
+    void printSumOfMiddlePagesOfIncorrectlyOrderedUpdatesAfterRearranging() {
+        System.out.println(manuals.stream().filter(m -> !m.satisfies(orders)).map(m -> m.rearrange(orders)).mapToInt(Manual::middle).sum());
+    }
 }
 
 record Order(int before, int after) {
@@ -62,11 +67,14 @@ record Page(int seq, int number) {
 }
 
 record Manual(Map<Integer, Integer> pages, int middle) {
-    static Manual from(String s) {
-        int[] numbers = Arrays.stream(s.split(",")).mapToInt(Integer::parseInt).toArray();
+    static Manual from(int[] numbers) {
         return new Manual(IntStream.range(0, numbers.length)
                 .mapToObj(i -> new Page(i, numbers[i]))
                 .collect(Collectors.toMap(Page::number, Page::seq)), numbers[numbers.length >> 1]);
+    }
+
+    static Manual from(String s) {
+        return from(Arrays.stream(s.split(",")).mapToInt(Integer::parseInt).toArray());
     }
 
     boolean satisfies(Order order) {
@@ -75,5 +83,19 @@ record Manual(Map<Integer, Integer> pages, int middle) {
 
     boolean satisfies(List<Order> orders) {
         return orders.stream().allMatch(this::satisfies);
+    }
+
+    Manual rearrange(List<Order> orders) {
+        var relevantOrders = orders.stream().filter(order -> pages.containsKey(order.before()) && pages.containsKey(order.after())).toList();
+        int l = pages.size() - 1;
+        var beforeOrderedByOccurrenceDescending = relevantOrders.stream()
+                .map(Order::before)
+                .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
+        int[] newNumbers = new int[pages.size()];
+        beforeOrderedByOccurrenceDescending.forEach((key, value) -> newNumbers[l - Math.toIntExact(value)] = key);
+        var lastButOne = newNumbers[l - 1];
+        var last = relevantOrders.stream().filter(order -> order.before() == lastButOne).mapToInt(Order::after).findFirst().orElseThrow();
+        newNumbers[l] = last;
+        return from(newNumbers);
     }
 }
