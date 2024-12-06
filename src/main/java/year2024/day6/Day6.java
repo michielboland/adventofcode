@@ -4,9 +4,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -34,6 +36,7 @@ enum TileType {
     GUARD('^'),
     BLANK('.'),
     OBSTACLE('#'),
+    NEW_OBSTACLE('O'),
     VISITED('X');
 
     final char character;
@@ -56,7 +59,6 @@ public class Day6 {
 class Puzzle {
 
     final Grid grid;
-    final AtomicInteger positionCounter = new AtomicInteger(1);
 
     Puzzle() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("day6_input"))) {
@@ -65,28 +67,9 @@ class Puzzle {
     }
 
     void solve() {
-        var guard = grid.findStart();
-        var heading = Heading.NORTH;
-        while (true) {
-            Tile next = grid.tiles().get(guard.coordinate().move(heading));
-            if (next == null) {
-                break;
-            }
-            switch (next.type()) {
-                case BLANK, VISITED -> guard = move(guard, next);
-                case OBSTACLE -> heading = heading.rotate();
-            }
-        }
-        System.out.println(positionCounter.get());
+        System.out.println(grid.walk(true));
+        System.out.println(grid.loopCount());
     }
-
-    Tile move(Tile tile, Tile next) {
-        if (next.type() == TileType.BLANK) {
-            positionCounter.incrementAndGet();
-        }
-        return grid.move(tile, next);
-    }
-
 }
 
 record Coordinate(int x, int y) implements Comparable<Coordinate> {
@@ -117,40 +100,82 @@ record Coordinate(int x, int y) implements Comparable<Coordinate> {
 }
 
 record Tile(Coordinate coordinate, TileType type) {
-    static Tile blank(Coordinate coordinate) {
-        return new Tile(coordinate, TileType.BLANK);
-    }
-
     static Tile at(int x, int y, int character) {
         return new Tile(new Coordinate(x, y), TileType.from(character));
     }
 }
 
-record Grid(Map<Coordinate, Tile> tiles) {
-    static void parse(Map<Coordinate, Tile> tiles, int y, String line) {
+class Holder {
+    Coordinate coordinate;
+
+    void put(final Coordinate coordinate) {
+        this.coordinate = coordinate;
+    }
+}
+
+record Grid(Map<Coordinate, TileType> tiles, Coordinate start) {
+    static void parse(Map<Coordinate, TileType> tiles, int y, String line, Holder holder) {
         final AtomicInteger x = new AtomicInteger();
-        line.chars().mapToObj(c -> Tile.at(x.getAndIncrement(), y, c)).forEach(tile -> tiles.put(tile.coordinate(), tile));
+        line.chars().mapToObj(c -> Tile.at(x.getAndIncrement(), y, c)).forEach(tile -> {
+            if (tile.type() == TileType.GUARD) {
+                holder.put(tile.coordinate());
+            }
+            tiles.put(tile.coordinate(), tile.type());
+        });
     }
 
     static Grid parse(Stream<String> lines) {
         final AtomicInteger y = new AtomicInteger();
-        Map<Coordinate, Tile> tiles = new TreeMap<>();
-        lines.forEach(line -> parse(tiles, y.getAndIncrement(), line));
-        return new Grid(tiles);
+        Map<Coordinate, TileType> tiles = new TreeMap<>();
+        var holder = new Holder();
+        lines.forEach(line -> parse(tiles, y.getAndIncrement(), line, holder));
+        return new Grid(tiles, holder.coordinate);
     }
 
-    Tile findStart() {
-        List<Tile> startTiles = tiles.values().stream().filter(t -> t.type() == TileType.GUARD).toList();
-        if (startTiles.size() != 1) {
-            throw new IllegalStateException();
+    int walk(boolean mark) {
+        Map<Coordinate, Set<Heading>> loopDetect = new HashMap<>();
+        var guard = start();
+        var heading = Heading.NORTH;
+        int i = 1;
+        while (true) {
+            loopDetect.computeIfAbsent(guard, c -> new HashSet<>());
+            var set = loopDetect.get(guard);
+            if (set.contains(heading)) {
+                return -1;
+            }
+            set.add(heading);
+            var nextPosition = guard.move(heading);
+            TileType next = tiles.get(nextPosition);
+            if (next == null) {
+                return i;
+            }
+            switch (next) {
+                case BLANK, GUARD, VISITED -> {
+                    if (next == TileType.BLANK) {
+                        ++i;
+                    }
+                    if (mark) {
+                        tiles.put(nextPosition, TileType.VISITED);
+                    }
+                    guard = nextPosition;
+                }
+                case OBSTACLE, NEW_OBSTACLE -> heading = heading.rotate();
+                default -> throw new IllegalStateException();
+            }
         }
-        return startTiles.get(0);
     }
 
-    Tile move(Tile tile, Tile next) {
-        tiles.put(tile.coordinate(), new Tile(tile.coordinate(), TileType.VISITED));
-        Tile newNext = new Tile(next.coordinate(), tile.type());
-        tiles.put(next.coordinate(), newNext);
-        return newNext;
+    int looped(Coordinate c) {
+        TileType orig = tiles.put(c, TileType.NEW_OBSTACLE);
+        var l = walk(false);
+        tiles.put(c, orig);
+        return l == -1 ? 1 : 0;
+    }
+
+    int loopCount() {
+        return tiles.keySet().stream()
+                .filter(c -> tiles.get(c) == TileType.VISITED)
+                .mapToInt(this::looped)
+                .sum();
     }
 }
