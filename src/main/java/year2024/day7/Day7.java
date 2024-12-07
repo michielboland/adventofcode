@@ -23,11 +23,15 @@ class Puzzle {
         }
     }
 
-    void solve() {
-        record Pair(Equation equation, long solutions) {
+    long solutions(boolean hiddenOperator) {
+        record Pair(Equation equation, boolean solvable) {
         }
-        long n = equations.stream().map(e -> new Pair(e, e.solutions())).filter(p -> p.solutions > 0).mapToLong(p -> p.equation.solution()).sum();
-        System.out.println(n);
+        return equations.stream().map(e -> new Pair(e, e.solvable(hiddenOperator))).filter(Pair::solvable).mapToLong(p -> p.equation.solution()).sum();
+    }
+
+    void solve() {
+        System.out.println(solutions(false));
+        System.out.println(solutions(true));
     }
 
 }
@@ -38,23 +42,30 @@ record Equation(long solution, List<Long> numbers) {
         return new Equation(Long.parseLong(parts[0]), Arrays.stream(parts[1].split(" ")).map(Long::parseLong).toList());
     }
 
-    long solutions() {
-        return solutions(solution, numbers.size() - 1);
+    boolean solvable(boolean hiddenOperator) {
+        return solvable(solution, numbers.size() - 1, hiddenOperator);
     }
 
-    private long solutions(long solution, int index) {
+    private boolean solvable(long solution, int index, boolean hiddenOperator) {
         if (index == 0) {
-            return numbers.get(0) == solution ? 1 : 0;
+            return numbers.get(0) == solution;
         } else {
             long last = numbers.get(index);
-            long total = 0;
-            if (solution > last) {
-                total += solutions(solution - last, index - 1);
+            if (solution > last && solvable(solution - last, index - 1, hiddenOperator)) {
+                return true;
             }
-            if (solution % last == 0) {
-                total += solutions(solution / last, index - 1);
+            if (solution % last == 0 && solvable(solution / last, index - 1, hiddenOperator)) {
+                return true;
             }
-            return total;
+            if (hiddenOperator) {
+                String lastDigits = String.valueOf(last);
+                String totalDigits = String.valueOf(solution);
+                int remainder = totalDigits.length() - lastDigits.length();
+                if (remainder > 0 && totalDigits.endsWith(lastDigits)) {
+                    return solvable(Long.parseLong(totalDigits.substring(0, remainder)), index - 1, true);
+                }
+            }
+            return false;
         }
     }
 }
