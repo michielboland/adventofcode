@@ -16,17 +16,15 @@ public class Day9 {
 }
 
 class Puzzle {
-    final Disk disk;
-
-    Puzzle() throws IOException {
+    Disk disk() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("day9_input"))) {
-            disk = Disk.from(new BufferedReader(new InputStreamReader(input)).lines());
+            return Disk.from(new BufferedReader(new InputStreamReader(input)).lines());
         }
     }
 
-    void solve() {
-        disk.compress();
-        System.out.println(disk.checksum());
+    void solve() throws IOException {
+        System.out.println(disk().compress().checksum());
+        System.out.println(disk().compressBetter().checksum());
     }
 }
 
@@ -56,7 +54,7 @@ class Disk {
         return new Disk(lines.collect(Collectors.joining()));
     }
 
-    void compress() {
+    Disk compress() {
         int freePtr = 0;
         int nonFreePtr = blocks.length;
         do {
@@ -73,6 +71,54 @@ class Disk {
             freePtr++;
             nonFreePtr--;
         } while (true);
+        return this;
+    }
+
+    int freePos(int len, int max) {
+        int i = 0;
+        int candidate = -1;
+        int n = 0;
+        while (i < max) {
+            if (blocks[i] == -1) {
+                if (candidate == -1) {
+                    candidate = i;
+                    n = 1;
+                } else {
+                    ++n;
+                }
+                if (n >= len) {
+                    return candidate;
+                }
+            } else {
+                candidate = -1;
+            }
+            ++i;
+        }
+        return -1;
+    }
+
+    Disk compressBetter() {
+        int end = blocks.length;
+        do {
+            while (end > 0 && blocks[end - 1] == -1) {
+                end--;
+            }
+            if (end == 0) {
+                break;
+            }
+            int fileId = blocks[end - 1];
+            int start = end - 1;
+            while (start > 0 && blocks[start - 1] == fileId) {
+                start--;
+            }
+            int len = end - start;
+            int freePos = freePos(len, start);
+            if (freePos != -1) {
+                swap(freePos, start, len);
+            }
+            end = start;
+        } while (true);
+        return this;
     }
 
     long checksum() {
@@ -83,5 +129,11 @@ class Disk {
         var c = blocks[a];
         blocks[a] = blocks[b];
         blocks[b] = c;
+    }
+
+    void swap(int a, int b, int len) {
+        for (int i = 0; i < len; i++) {
+            swap(a + i, b + i);
+        }
     }
 }
