@@ -34,7 +34,7 @@ class Puzzle {
     }
 }
 
-record Coordinate(int x, int y) implements Comparable<Coordinate> {
+record Coordinate(int x, int y) {
     Collection<Coordinate> neighbours() {
         return Set.of(
                 new Coordinate(x + 1, y),
@@ -42,16 +42,6 @@ record Coordinate(int x, int y) implements Comparable<Coordinate> {
                 new Coordinate(x - 1, y),
                 new Coordinate(x, y - 1)
         );
-    }
-
-    @Override
-    public int compareTo(Coordinate o) {
-        return y == o.y ? Integer.compare(x, o.x) : Integer.compare(y, o.y);
-    }
-
-    @Override
-    public String toString() {
-        return "(%d,%d)".formatted(x, y);
     }
 }
 
