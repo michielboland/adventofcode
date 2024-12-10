@@ -3,14 +3,15 @@ package year2024.day10;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Day10 {
@@ -33,7 +34,7 @@ class Puzzle {
     }
 }
 
-record Coordinate(int x, int y) {
+record Coordinate(int x, int y) implements Comparable<Coordinate> {
     Collection<Coordinate> neighbours() {
         return Set.of(
                 new Coordinate(x + 1, y),
@@ -41,6 +42,25 @@ record Coordinate(int x, int y) {
                 new Coordinate(x - 1, y),
                 new Coordinate(x, y - 1)
         );
+    }
+
+    @Override
+    public int compareTo(Coordinate o) {
+        return y == o.y ? Integer.compare(x, o.x) : Integer.compare(y, o.y);
+    }
+
+    @Override
+    public String toString() {
+        return "(%d,%d)".formatted(x, y);
+    }
+}
+
+record Pair(int score, int rating) {
+    static Pair ZERO() {
+        return new Pair(0, 0);
+    }
+    Pair add(Pair other) {
+        return new Pair(score + other.score, rating + other.rating);
     }
 }
 
@@ -70,27 +90,38 @@ record Grid(Map<Coordinate, Integer> heights, Set<Coordinate> trailHeads) {
         return j != null && j == i + 1;
     }
 
-    int hike() {
-        return trailHeads.stream().mapToInt(this::score).sum();
+    Pair hike() {
+        return trailHeads.stream().map(this::pair).reduce(Pair.ZERO(), Pair::add);
     }
 
-    int score(Coordinate trailHead) {
-        Set<Coordinate> visited = new HashSet<>();
-        Set<Coordinate> tops = new HashSet<>();
-        Deque<Coordinate> deque = new LinkedList<>();
-        deque.addLast(trailHead);
+    Pair pair(Coordinate trailHead) {
+        var trails = trails(trailHead);
+        int rating = trails.size();
+        int score = trails.stream().map(Deque::getLast).collect(Collectors.toSet()).size();
+        return new Pair(score, rating);
+    }
+
+    Set<Deque<Coordinate>> trails(Coordinate trailHead) {
+        Set<Deque<Coordinate>> trails = new HashSet<>();
+        Deque<Deque<Coordinate>> deque = new ArrayDeque<>();
+        Deque<Coordinate> start = new ArrayDeque<>();
+        start.addLast(trailHead);
+        deque.addLast(start);
         while (!deque.isEmpty()) {
-            var coordinate = deque.removeFirst();
-            visited.add(coordinate);
-            if (heights.get(coordinate) == 9) {
-                tops.add(coordinate);
-            }
-            for (Coordinate neighbour : coordinate.neighbours()) {
-                if (canHike(coordinate, neighbour) && !visited.contains(neighbour)) {
-                    deque.addLast(neighbour);
+            var trail = deque.removeFirst();
+            Coordinate position = trail.getLast();
+            if (heights.get(position) == 9) {
+                trails.add(trail);
+            } else {
+                for (Coordinate neighbour : position.neighbours()) {
+                    if (canHike(position, neighbour)) {
+                        var xTrail = new ArrayDeque<>(trail);
+                        xTrail.addLast(neighbour);
+                        deque.addLast(xTrail);
+                    }
                 }
             }
         }
-        return tops.size();
+        return trails;
     }
 }
