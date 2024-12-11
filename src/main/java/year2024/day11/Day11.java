@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Objects;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Stream;
@@ -16,25 +15,24 @@ public class Day11 {
 }
 
 class Puzzle {
-    private final Stones stones;
+    private final Stones initialStones;
 
     Puzzle() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("day11_input"))) {
-            stones = Stones.from(new BufferedReader(new InputStreamReader(input)).lines());
+            initialStones = Stones.from(new BufferedReader(new InputStreamReader(input)).lines());
         }
     }
 
     void solve() {
-        for (int i = 0; i < 25; i++) {
-            stones.blink();
-        }
-        stones.print();
+        var after25 = initialStones.blink(25);
+        System.out.println(after25.total());
+        var after75 = after25.blink(50);
+        System.out.println(after75.total());
     }
 }
 
 class Stones {
     private final SortedMap<Long, Long> stones = new TreeMap<>();
-    long gap = 0x100000000L;
 
     static Stones from(Stream<String> lines) {
         var stones = new Stones();
@@ -44,40 +42,45 @@ class Stones {
         return stones;
     }
 
-    void add(long number) {
-        long nextKey = stones.isEmpty() ? 0L : stones.lastKey() + gap;
-        stones.put(nextKey, number);
+    void add(long number, long count) {
+        stones.compute(number, (k, v) -> v == null ? count : v + count);
     }
 
     void parse(String line) {
         for (String number : line.split(" ")) {
-            add(Long.parseLong(number));
+            add(Long.parseLong(number), 1);
         }
     }
 
-    void blink() {
-        gap >>= 1;
-        if (gap == 0) {
-            throw new IllegalStateException();
-        }
-        for (var key : Set.copyOf(stones.keySet())) {
-            var stone = stones.get(key);
+    Stones blink() {
+        var newStones = new Stones();
+        for (var stone : stones.keySet()) {
+            var count = stones.get(stone);
             if (stone == 0) {
-                stones.put(key, 1L);
+                newStones.add(1, count);
             } else {
                 var number = String.valueOf(stone);
                 var l = number.length();
                 if ((l & 1) == 0) {
-                    stones.put(key, Long.parseLong(number.substring(0, l >> 1)));
-                    stones.put(key + gap, Long.parseLong(number.substring(l >> 1)));
+                    newStones.add(Long.parseLong(number.substring(0, l >> 1)), count);
+                    newStones.add(Long.parseLong(number.substring(l >> 1)), count);
                 } else {
-                    stones.put(key, stone * 2024L);
+                    newStones.add(stone * 2024L, count);
                 }
             }
         }
+        return newStones;
     }
 
-    void print() {
-        System.out.println(stones.size());
+    Stones blink(int count) {
+        var result = this;
+        for (int i = 0; i < count ; i++) {
+            result = result.blink();
+        }
+        return result;
+    }
+
+    long total() {
+        return stones.values().stream().mapToLong(l -> l).sum();
     }
 }
