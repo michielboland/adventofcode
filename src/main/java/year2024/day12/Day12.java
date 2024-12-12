@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 public class Day12 {
@@ -32,11 +34,13 @@ class Puzzle {
     }
 
     void solve() {
-        System.out.println(grid.regions().stream().mapToInt(Region::price).sum());
+        var regions = grid.regions();
+        System.out.println(regions.stream().mapToInt(Region::price).sum());
+        System.out.println(regions.stream().mapToLong(Region::betterPrice).sum());
     }
 }
 
-record Coordinate(int x, int y) {
+record Coordinate(int x, int y) implements Comparable<Coordinate> {
     Collection<Coordinate> neighbours() {
         return Set.of(
                 new Coordinate(x + 1, y),
@@ -46,9 +50,22 @@ record Coordinate(int x, int y) {
         );
     }
 
+    Collection<Coordinate> edges() {
+        return Set.of(
+                new Coordinate(x, y),
+                new Coordinate(x, y + 1),
+                new Coordinate(x + 1, y),
+                new Coordinate(x + 1, y + 1)
+        );
+    }
+
+    boolean isNeighbor(Coordinate other) {
+        return x == other.x || y == other.y;
+    }
+
     @Override
-    public String toString() {
-        return "(" + x + "," + y + ")";
+    public int compareTo(Coordinate o) {
+        return y == o.y ? Integer.compare(x, o.x) : Integer.compare(y, o.y);
     }
 }
 
@@ -63,6 +80,23 @@ record Region(Map<Coordinate, Integer> plots) {
 
     int price() {
         return area() * perimeter();
+    }
+
+    long edges() {
+        Map<Coordinate, SortedSet<Coordinate>> edges = new HashMap<>();
+        for (Coordinate coordinate : plots.keySet()) {
+            for (Coordinate edge : coordinate.edges()) {
+                edges.computeIfAbsent(edge, c -> new TreeSet<>());
+                edges.get(edge).add(coordinate);
+            }
+
+        }
+        long hidden = 2 * edges.values().stream().filter(s -> s.size() == 2 && !s.first().isNeighbor(s.last())).count();
+        return edges.values().stream().filter(s -> (s.size() & 1) == 1).count() + hidden;
+    }
+
+    long betterPrice() {
+        return area() * edges();
     }
 }
 
@@ -82,6 +116,7 @@ record Grid(Map<Coordinate, Character> plots) {
     }
 
     Region region(Coordinate coordinate, Set<Coordinate> visited) {
+        var thisPlant = plots.get(coordinate);
         Map<Coordinate, Integer> bits = new HashMap<>();
         Deque<Coordinate> queue = new ArrayDeque<>();
         queue.addLast(coordinate);
@@ -91,7 +126,6 @@ record Grid(Map<Coordinate, Character> plots) {
             }
             Coordinate c = queue.removeFirst();
             visited.add(c);
-            var thisPlant = plots.get(c);
             int fences = 4;
             for (Coordinate neighbour : c.neighbours()) {
                 var otherPlant = plots.get(neighbour);
