@@ -24,7 +24,8 @@ class Puzzle {
     }
 
     void solve() {
-        System.out.println(clawMachines.stream().mapToLong(ClawMachine::tokens).sum());
+        System.out.println(clawMachines.stream().mapToLong(c -> c.tokens(0L)).sum());
+        System.out.println(clawMachines.stream().mapToLong(c -> c.tokens(10000000000000L)).sum());
     }
 }
 
@@ -66,8 +67,10 @@ record ClawMachine(Coordinate buttonA, Coordinate buttonB, Coordinate prize) {
         return buttonA.x() * buttonB.y() - buttonA.y() * buttonB.x();
     }
 
-    long tokens() {
-        Coordinate multiple = new Coordinate(buttonB.y() * prize.x() - buttonB.x() * prize.y(), -buttonA.y() * prize.x() + buttonA.x() * prize.y());
+    long tokens(long prizeDistance) {
+        long px = prize.x() + prizeDistance;
+        long py = prize.y() + prizeDistance;
+        Coordinate multiple = new Coordinate(buttonB.y() * px - buttonB.x() * py, -buttonA.y() * px + buttonA.x() * py);
         var d = determinant();
         if (multiple.mod(d).equals(Coordinate.ZERO)) {
             var ab = multiple.divide(d);
