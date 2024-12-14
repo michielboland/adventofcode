@@ -11,6 +11,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class Day14 {
@@ -21,21 +23,32 @@ public class Day14 {
 
 class Puzzle {
     final Grid grid;
+    final int width = 101;
+    final int height = 103;
 
     Puzzle() throws IOException {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("day14_input"))) {
-            grid = Grid.from(new BufferedReader(new InputStreamReader(input)).lines());
+            grid = Grid.from(new BufferedReader(new InputStreamReader(input)).lines(), width, height);
         }
     }
 
     void solve() {
-        System.out.println(grid.move().safetyFactor());
+        System.out.println(grid.move(100).safetyFactor());
+        Grid newGrid = grid;
+        for (int i = 0; i <= width * height; i++) {
+            if (newGrid.toString().matches("(?s).*\\*{10}.*")) {
+                System.out.println(i);
+                System.out.println(newGrid);
+                break;
+            }
+            newGrid = newGrid.move(1);
+        }
     }
 }
 
-record Coordinate(long x, long y) {
+record Coordinate(int x, int y) {
     static Coordinate from(String x, String y) {
-        return new Coordinate(Long.parseLong(x), Long.parseLong(y));
+        return new Coordinate(Integer.parseInt(x), Integer.parseInt(y));
     }
 }
 
@@ -56,17 +69,18 @@ record Robot(int serial, Coordinate position, Coordinate speed) {
     }
 }
 
-record Grid(List<Robot> robots, Coordinate bounds, long times) {
-    static Grid from(Stream<String> lines) {
-        return new Grid(lines.map(Robot::from).toList(), new Coordinate(101, 103), 100);
+record Grid(List<Robot> robots, Coordinate bounds) {
+    @SuppressWarnings("SameParameterValue")
+    static Grid from(Stream<String> lines, int width, int height) {
+        return new Grid(lines.map(Robot::from).toList(), new Coordinate(width, height));
     }
 
-    static long mod(long a, long b) {
-        long c = a % b;
+    static int mod(int a, int b) {
+        int c = a % b;
         return c >= 0 ? c : c + b;
     }
 
-    Robot move(Robot robot) {
+    Robot move(Robot robot, int times) {
         return new Robot(robot.serial(), new Coordinate(
                 mod(robot.position().x() + times * robot.speed().x(), bounds.x()),
                 mod(robot.position().y() + times * robot.speed().y(), bounds.y())
@@ -75,13 +89,13 @@ record Grid(List<Robot> robots, Coordinate bounds, long times) {
 
     Coordinate quadrant(Robot robot) {
         return new Coordinate(
-                Long.compare(robot.position().x() - bounds.x() / 2, 0),
-                Long.compare(robot.position().y() - bounds.y() / 2, 0)
+                Integer.compare(robot.position().x() - bounds.x() / 2, 0),
+                Integer.compare(robot.position().y() - bounds.y() / 2, 0)
         );
     }
 
-    Grid move() {
-        return new Grid(robots.stream().map(this::move).toList(), bounds, times);
+    Grid move(int times) {
+        return new Grid(robots.stream().map(r -> move(r, times)).toList(), bounds);
     }
 
     long safetyFactor() {
@@ -96,5 +110,17 @@ record Grid(List<Robot> robots, Coordinate bounds, long times) {
         return quadrantMap.values().stream()
                 .mapToLong(Set::size)
                 .reduce(1, (a, b) -> a * b);
+    }
+
+    String line(int y) {
+        var set = robots.stream().filter(r -> r.position().y() == y)
+                .map(r -> r.position().x())
+                .collect(Collectors.toSet());
+        return IntStream.range(0, bounds.x()).mapToObj(i -> set.contains(i) ? "*" : ".").collect(Collectors.joining());
+    }
+
+    @Override
+    public String toString() {
+        return IntStream.range(0, bounds.y()).mapToObj(this::line).collect(Collectors.joining("\n"));
     }
 }
