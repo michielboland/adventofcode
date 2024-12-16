@@ -80,6 +80,9 @@ record Reindeer(Coordinate position, Heading heading) implements Comparable<Rein
     }
 }
 
+record BestPaths(int lowestScore, int viewingSpots) {
+}
+
 record Grid(Set<Coordinate> walls, Coordinate start, Coordinate end) {
     static Grid from(Stream<String> lines) {
         Set<Coordinate> walls = new HashSet<>();
@@ -106,23 +109,30 @@ record Grid(Set<Coordinate> walls, Coordinate start, Coordinate end) {
         Reindeer reindeer = nd.node;
         Heading currentHeading = reindeer.heading();
         for (Heading heading : currentHeading.rotate()) {
-            neighbours.add(new ND(new Reindeer(reindeer.position(), heading), nd.distance + 1000));
+            neighbours.add(new ND(new Reindeer(reindeer.position(), heading), nd.distance + 1000, nd));
         }
         var nextPosition = reindeer.position().move(currentHeading);
         if (!walls.contains(nextPosition)) {
-            neighbours.add(new ND(new Reindeer(nextPosition, currentHeading), nd.distance + 1));
+            neighbours.add(new ND(new Reindeer(nextPosition, currentHeading), nd.distance + 1, nd));
         }
         return neighbours;
     }
 
-    int shortestPath() {
+    BestPaths shortestPath() {
+        int shortest = -1;
         var queue = new PriorityQueue<ND>();
+        Set<Coordinate> viewingSpots = new HashSet<>();
         Set<Reindeer> visited = new HashSet<>();
-        queue.add(new ND(new Reindeer(start, Heading.EAST), 0));
+        queue.add(new ND(new Reindeer(start, Heading.EAST), 0, null));
         while (!queue.isEmpty()) {
             var current = queue.remove();
             if (current.node.position().equals(end)) {
-                return current.distance;
+                if (shortest == -1) {
+                    shortest = current.distance;
+                }
+                if (shortest == current.distance) {
+                    viewingSpots.addAll(current.path());
+                }
             }
             visited.add(current.node);
             for (var next : neighbours(current)) {
@@ -131,14 +141,24 @@ record Grid(Set<Coordinate> walls, Coordinate start, Coordinate end) {
                 }
             }
         }
-        return -1;
+        return new BestPaths(shortest, viewingSpots.size());
     }
 
-    record ND(Reindeer node, int distance) implements Comparable<ND> {
+    record ND(Reindeer node, int distance, ND previous) implements Comparable<ND> {
 
         @Override
         public int compareTo(ND o) {
             return distance == o.distance ? node.compareTo(o.node) : Integer.compare(distance, o.distance);
+        }
+
+        public Collection<Coordinate> path() {
+            Collection<Coordinate> path = new HashSet<>();
+            var nd = this;
+            while (nd != null) {
+                path.add(nd.node.position());
+                nd = nd.previous;
+            }
+            return path;
         }
     }
 }
