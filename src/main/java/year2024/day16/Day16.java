@@ -151,7 +151,7 @@ record Grid(Set<Coordinate> walls, Coordinate start, Coordinate end) {
             return distance == o.distance ? node.compareTo(o.node) : Integer.compare(distance, o.distance);
         }
 
-        public Collection<Coordinate> path() {
+        Collection<Coordinate> path() {
             Collection<Coordinate> path = new HashSet<>();
             var nd = this;
             while (nd != null) {
