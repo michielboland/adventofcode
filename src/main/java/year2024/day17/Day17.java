@@ -19,17 +19,18 @@ class Puzzle {
     final Computer computer;
 
     Puzzle() throws Exception {
-        computer = Computer.from(Files.readString(Paths.get(Objects.requireNonNull(getClass().getResource("day17_test")).toURI())));
+        computer = Computer.from(Files.readString(Paths.get(Objects.requireNonNull(getClass().getResource("day17_input")).toURI())));
     }
 
     void solve() {
-        System.out.println(computer);
+        computer.run();
+        System.out.println(computer.output());
     }
 }
 
 class Computer {
     final int[] instructions;
-    final List<Integer> output = new ArrayList<>();
+    private final List<Integer> output = new ArrayList<>();
     int a;
     int b;
     int c;
@@ -56,15 +57,38 @@ class Computer {
                 Arrays.stream(parts[1].split(":")[1].replaceAll("\\s", "").split(",")).mapToInt(Integer::parseInt).toArray());
     }
 
-    @Override
-    public String toString() {
-        return """
-                Register A: %d
-                Register B: %d
-                Register C: %d
+    int combo(int o) {
+        return switch (o) {
+            case 0, 1, 2, 3 -> o;
+            case 4 -> a;
+            case 5 -> b;
+            case 6 -> c;
+            default -> throw new IllegalStateException();
+        };
+    }
 
-                Program: %s
-                """.formatted(a, b, c,
-                Arrays.stream(instructions).boxed().map(String::valueOf).collect(Collectors.joining(",")));
+    void run() {
+        while (ip < instructions.length) {
+            int i = instructions[ip++];
+            int o = instructions[ip++];
+            switch (i) {
+                case 0 -> a = a >> combo(o);
+                case 1 -> b = b ^ o;
+                case 2 -> b = combo(o) & 7;
+                case 3 -> {
+                    if (a != 0) {
+                        ip = o;
+                    }
+                }
+                case 4 -> b = b ^ c;
+                case 5 -> output.add(combo(o) & 7);
+                case 6 -> b = a >> combo(o);
+                case 7 -> c = a >> combo(o);
+            }
+        }
+    }
+
+    String output() {
+        return output.stream().map(String::valueOf).collect(Collectors.joining(","));
     }
 }
