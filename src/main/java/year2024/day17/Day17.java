@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -23,26 +25,12 @@ class Puzzle {
     }
 
     void solve() {
-        computer.run();
-        System.out.println(computer.output());
+        System.out.println(computer.run().stream().map(String::valueOf).collect(Collectors.joining(",")));
+        System.out.println(computer.selfReplicator());
     }
 }
 
-class Computer {
-    final int[] instructions;
-    private final List<Integer> output = new ArrayList<>();
-    int a;
-    int b;
-    int c;
-    int ip;
-
-    Computer(int a, int b, int c, int[] instructions) {
-        this.a = a;
-        this.b = b;
-        this.c = c;
-        this.ip = 0; // redundant
-        this.instructions = instructions;
-    }
+record Computer(int initialA, int initialB, int initialC, int[] instructions) {
 
     static Computer from(String program) {
         var parts = program.split("\n\n");
@@ -57,7 +45,7 @@ class Computer {
                 Arrays.stream(parts[1].split(":")[1].replaceAll("\\s", "").split(",")).mapToInt(Integer::parseInt).toArray());
     }
 
-    int combo(int o) {
+    long combo(int o, long a, long b, long c) {
         return switch (o) {
             case 0, 1, 2, 3 -> o;
             case 4 -> a;
@@ -67,28 +55,54 @@ class Computer {
         };
     }
 
-    void run() {
+    List<Integer> run() {
+        return run(initialA);
+    }
+
+    List<Integer> run(final long newA) {
+        List<Integer> output = new ArrayList<>();
+        int ip = 0;
+        long a = newA;
+        long b = initialB;
+        long c = initialC;
         while (ip < instructions.length) {
             int i = instructions[ip++];
             int o = instructions[ip++];
             switch (i) {
-                case 0 -> a = a >> combo(o);
+                case 0 -> a = a >> combo(o, a, b, c);
                 case 1 -> b = b ^ o;
-                case 2 -> b = combo(o) & 7;
+                case 2 -> b = combo(o, a, b, c) & 7;
                 case 3 -> {
                     if (a != 0) {
                         ip = o;
                     }
                 }
                 case 4 -> b = b ^ c;
-                case 5 -> output.add(combo(o) & 7);
-                case 6 -> b = a >> combo(o);
-                case 7 -> c = a >> combo(o);
+                case 5 -> output.add((int) combo(o, a, b, c) & 7);
+                case 6 -> b = a >> combo(o, a, b, c);
+                case 7 -> c = a >> combo(o, a, b, c);
             }
         }
+        return output;
     }
 
-    String output() {
-        return output.stream().map(String::valueOf).collect(Collectors.joining(","));
+    long selfReplicator() {
+        SortedSet<Long> candidates = new TreeSet<>();
+        candidates.add(0L);
+        for (int i = 0; i < instructions.length; i++) {
+            var lastInstruction = instructions[instructions.length - i - 1];
+            SortedSet<Long> newCandidates = new TreeSet<>();
+            for (var old : candidates) {
+                long candidate = old << 3;
+                for (int j = 0; j < 8; j++) {
+                    if (run(candidate).get(0) == lastInstruction) {
+                        newCandidates.add(candidate);
+                    }
+                    candidate++;
+                }
+            }
+            candidates = newCandidates;
+        }
+        return candidates.first();
     }
 }
