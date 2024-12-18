@@ -29,7 +29,12 @@ class Puzzle {
     }
 
     void solve() {
-        System.out.println(grid.walk());
+        System.out.println(grid.walk(Grid.BYTES));
+        int i = Grid.BYTES + 1;
+        while (grid.walk(i) != -1) {
+            ++i;
+        }
+        System.out.println(grid.badCell(i - 1));
     }
 }
 
@@ -51,6 +56,11 @@ record Coordinate(int x, int y) implements Comparable<Coordinate> {
     @Override
     public int compareTo(Coordinate o) {
         return y == o.y ? Integer.compare(x, o.x) : Integer.compare(y, o.y);
+    }
+
+    @Override
+    public String toString() {
+        return x + "," + y;
     }
 }
 
@@ -74,21 +84,18 @@ record Grid(Map<Coordinate, Integer> badCells) {
             badCells.put(Coordinate.from(line), i);
             ++i;
         }
-        return new Grid(Map.copyOf(badCells));
+        return new Grid(badCells);
     }
 
-    boolean isBadAt(Coordinate cell, @SuppressWarnings("SameParameterValue") int n) {
+    boolean isBadAt(Coordinate cell, int n) {
         return Optional.ofNullable(badCells.get(cell)).map(i -> i < n).orElse(false);
     }
 
-    int walk() {
+    int walk(int n) {
         var queue = new PriorityQueue<ND>();
         Set<Coordinate> visited = new HashSet<>();
         queue.add(new ND(START, 0));
         while (!queue.isEmpty()) {
-            if (queue.size() > SIZE * SIZE) {
-                throw new IllegalStateException();
-            }
             var current = queue.remove();
             Coordinate coordinate = current.node();
             if (coordinate.equals(FINISH)) {
@@ -99,7 +106,7 @@ record Grid(Map<Coordinate, Integer> badCells) {
                 if (neighbour.x() < 0 || neighbour.x() >= SIZE || neighbour.y() < 0 || neighbour.y() >= SIZE) {
                     continue;
                 }
-                if (isBadAt(neighbour, BYTES)) {
+                if (isBadAt(neighbour, n)) {
                     continue;
                 }
                 if (!visited.contains(neighbour)) {
@@ -111,5 +118,9 @@ record Grid(Map<Coordinate, Integer> badCells) {
             }
         }
         return -1;
+    }
+
+    Coordinate badCell(int i) {
+        return badCells.entrySet().stream().filter(e -> e.getValue() == i).map(Map.Entry::getKey).findFirst().orElseThrow();
     }
 }
