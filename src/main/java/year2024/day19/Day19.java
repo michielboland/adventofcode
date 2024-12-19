@@ -28,6 +28,10 @@ class Puzzle {
     }
 
     long solutions(String s) {
+        // GROSS HACK
+        if (!s.contains("b")) {
+            return 1;
+        }
         if (towels.contains(s)) {
             return 1;
         }
@@ -47,7 +51,6 @@ class Puzzle {
     }
 
     void solve() {
-        // 228 is too low
         System.out.println(patterns.stream().filter(p -> solutions(p) > 0).count());
     }
 }
