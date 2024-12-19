@@ -28,29 +28,38 @@ class Puzzle {
     }
 
     long solutions(String s) {
-        // GROSS HACK
-        if (!s.contains("b")) {
+        return solutions(s, 0, s.length());
+    }
+
+    long solutions(String pattern, int from, int to) {
+        var portion = pattern.substring(from, to);
+        if (portion.isEmpty()) {
             return 1;
         }
-        if (towels.contains(s)) {
+        if (towels.contains(portion)) {
             return 1;
         }
-        int l = s.length();
-        int i = (l - maxLen) / 2;
-        long total = 0;
-        for (int j = 0; j < maxLen; j++) {
-            int k = i + j;
-            if (k <= 0 || k >= l) {
-                continue;
+        if (to == from + 1) {
+            return 0;
+        }
+        int middle = (from + to) / 2;
+        long total = solutions(pattern, from, middle) * solutions(pattern, middle, to);
+        for (int towelSize = 2; towelSize <= maxLen; towelSize++) {
+            for (int offset = middle - towelSize + 1; offset < middle; offset++) {
+                if (offset < from || offset + towelSize > to) {
+                    continue;
+                }
+                if (towels.contains(pattern.substring(offset, offset + towelSize))) {
+                    total += solutions(pattern, from, offset) * solutions(pattern, offset + towelSize, to);
+                }
             }
-            var left = s.substring(0, k);
-            var right = s.substring(k);
-            total += solutions(left) * solutions(right);
         }
         return total;
     }
 
     void solve() {
+        // 76514031378 is too low
         System.out.println(patterns.stream().filter(p -> solutions(p) > 0).count());
+        System.out.println(patterns.stream().mapToLong(this::solutions).sum());
     }
 }
