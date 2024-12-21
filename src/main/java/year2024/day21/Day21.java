@@ -80,7 +80,7 @@ class Puzzle {
     }
 
     void solve() {
-        // 211214 is too high
+        // 207806 is too high
         System.out.println(sequences.stream().mapToInt(keyPad::complexity).sum());
     }
 }
@@ -154,7 +154,10 @@ record ND(Key key, int distance, Key direction, ND previous) implements Comparab
 
     @Override
     public int compareTo(ND o) {
-        return distance == o.distance ? key.compareTo(o.key) : Integer.compare(distance, o.distance);
+        return distance != o.distance ? Integer.compare(distance, o.distance)
+                : key != o.key ? key.compareTo(o.key)
+                : direction == null ? (o.direction == null ? 0 : -1)
+                : o.direction == null ? 1 : direction.compareTo(o.direction);
     }
 
     String path() {
