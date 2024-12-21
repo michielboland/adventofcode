@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -28,7 +29,9 @@ class Puzzle {
     }
 
     void solve() {
-        System.out.println(grid.countGoodCheats());
+        var map = grid.distanceMap();
+        System.out.println(grid.countGoodCheats(map, 2));
+        System.out.println(grid.countGoodCheats(map, 20));
     }
 }
 
@@ -45,6 +48,17 @@ record Coordinate(int x, int y) implements Comparable<Coordinate> {
                 new Coordinate(x, y + 1),
                 new Coordinate(x - 1, y)
         );
+    }
+
+    Collection<Coordinate> neighbours(int cheatDistance) {
+        Collection<Coordinate> neighbours = new TreeSet<>();
+        for (int i = 0; i < cheatDistance; i++) {
+            neighbours.add(new Coordinate(x + i, y - cheatDistance + i));
+            neighbours.add(new Coordinate(x + cheatDistance - i, y + i));
+            neighbours.add(new Coordinate(x - i, y + cheatDistance - i));
+            neighbours.add(new Coordinate(x - cheatDistance + i, y - i));
+        }
+        return neighbours;
     }
 }
 
@@ -84,19 +98,16 @@ record Grid(int width, int height, Set<Coordinate> walls, Coordinate start, Coor
         return distanceMap;
     }
 
-    long countGoodCheats() {
-        var distances = distanceMap();
+    long countGoodCheats(Map<Coordinate, Integer> distances, int maxCheatDuration) {
         Map<List<Coordinate>, Integer> cheats = new HashMap<>();
         for (Map.Entry<Coordinate, Integer> e : distances.entrySet()) {
-            Coordinate coordinate = e.getKey();
+            Coordinate cheatStart = e.getKey();
             int distance = e.getValue();
-            for (Coordinate neighbour : coordinate.neighbours()) {
-                if (walls.contains(neighbour)) {
-                    for (Coordinate furtherOut : neighbour.neighbours()) {
-                        Integer newDistance = distances.get(furtherOut);
-                        if (newDistance != null) {
-                            cheats.put(List.of(coordinate, furtherOut), newDistance - distance - 2);
-                        }
+            for (int cheatDuration = 2; cheatDuration <= maxCheatDuration; cheatDuration++) {
+                for (var cheatEnd : cheatStart.neighbours(cheatDuration)) {
+                    Integer newDistance = distances.get(cheatEnd);
+                    if (newDistance != null) {
+                        cheats.put(List.of(cheatStart, cheatEnd), newDistance - distance - cheatDuration);
                     }
                 }
             }
