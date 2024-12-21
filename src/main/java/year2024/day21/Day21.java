@@ -80,32 +80,56 @@ class Puzzle {
     }
 
     void solve() {
-        // 207806 is too high
         System.out.println(sequences.stream().mapToInt(keyPad::complexity).sum());
     }
 }
 
 class KeyPad {
-    private final Map<Pair, String> cache = new HashMap<>();
+    private final Map<Pair, List<String>> cache = new HashMap<>();
 
-    String instructions(String sequence) {
-        var sb = new StringBuilder();
-        sb.append(path(Key.ACTIVATE, Key.from(sequence.charAt(0))));
-        for (int i = 0; i < sequence.length() - 1; i++) {
-            sb.append(path(Key.from(sequence.charAt(i)), Key.from(sequence.charAt(i + 1))));
+    static List<String> explode(List<List<String>> list) {
+        if (list.isEmpty()) {
+            throw new IllegalStateException();
         }
-        return sb.toString();
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+        List<String> newList = new ArrayList<>();
+        List<String> left = list.get(0);
+        List<String> right = explode(list.subList(1, list.size()));
+        for (var l : left) {
+            for (var r : right) {
+                newList.add(l + r);
+            }
+        }
+        return newList;
     }
 
-    String instructions3(String sequence) {
+    List<String> instructions(List<String> sequences) {
+        List<String> instructions = new ArrayList<>();
+        Key state;
+        Key previousState = Key.ACTIVATE;
+        for (var sequence : sequences) {
+            List<List<String>> tmp = new ArrayList<>();
+            for (char c : sequence.toCharArray()) {
+                state = Key.from(c);
+                tmp.add(paths(previousState, state));
+                previousState = state;
+            }
+            instructions.addAll(explode(tmp));
+        }
+        return instructions;
+    }
+
+    List<String> instructions3(List<String> sequence) {
         return instructions(instructions(instructions(sequence)));
     }
 
     int complexity(String sequence) {
-        return instructions3(sequence).length() * Integer.parseInt(sequence.replaceAll("A", ""));
+        return instructions3(List.of(sequence)).stream().mapToInt(String::length).min().orElseThrow() * Integer.parseInt(sequence.replaceAll("A", ""));
     }
 
-    String path(Key from, Key to) {
+    List<String> paths(Key from, Key to) {
         var cached = cache.get(new Pair(from, to));
         if (cached != null) {
             return cached;
@@ -113,12 +137,15 @@ class KeyPad {
         var queue = new PriorityQueue<ND>();
         Set<Turn> visited = new HashSet<>();
         queue.add(new ND(from, 0, null, null));
-        ND bestPath = null;
+        List<ND> bestPaths = new ArrayList<>();
         while (!queue.isEmpty()) {
             var current = queue.remove();
             if (current.key() == to) {
-                bestPath = current;
-                break;
+                if (bestPaths.isEmpty() || bestPaths.get(0).distance() == current.distance()) {
+                    bestPaths.add(current);
+                } else {
+                    break;
+                }
             } else {
                 for (Neighbour neighbour : current.key().neighbours()) {
                     var turn = new Turn(current.key(), current.direction(), neighbour.direction(), neighbour.key());
@@ -129,9 +156,9 @@ class KeyPad {
                 }
             }
         }
-        var path = Objects.requireNonNull(bestPath).path();
-        cache.put(new Pair(from, to), path);
-        return path;
+        List<String> paths = bestPaths.stream().map(ND::path).toList();
+        cache.put(new Pair(from, to), paths);
+        return paths;
     }
 }
 
