@@ -64,105 +64,115 @@ enum Key {
 
 public class Day21 {
     public static void main(String[] args) throws Exception {
-        new Puzzle().solve();
+        var puzzle = new Puzzle();
+        puzzle.solve(2);
+        puzzle.solve(25);
     }
 }
 
 class Puzzle {
-    private final KeyPad keyPad;
     private final List<String> sequences;
 
     Puzzle() throws Exception {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("day21_input"))) {
             sequences = new BufferedReader(new InputStreamReader(input)).lines().toList();
         }
-        keyPad = new KeyPad();
     }
 
-    void solve() {
-        System.out.println(sequences.stream().mapToInt(keyPad::complexity).sum());
+    void solve(int repeats) {
+        var keyPad = new KeyPad(repeats);
+        System.out.println(sequences.stream().mapToLong(keyPad::complexity).sum());
     }
 }
 
 class KeyPad {
-    private final Map<Pair, List<String>> cache = new HashMap<>();
+    private static final Map<String, String> INSTRUCTION_CACHE = new HashMap<>();
+    private final int repeats;
 
-    static List<String> explode(List<List<String>> list) {
-        if (list.isEmpty()) {
-            throw new IllegalStateException();
-        }
-        if (list.size() == 1) {
-            return list.get(0);
-        }
-        List<String> newList = new ArrayList<>();
-        List<String> left = list.get(0);
-        List<String> right = explode(list.subList(1, list.size()));
-        for (var l : left) {
-            for (var r : right) {
-                newList.add(l + r);
-            }
-        }
-        return newList;
+    KeyPad(int repeats) {
+        this.repeats = repeats;
     }
 
-    List<String> instructions(List<String> sequences) {
-        List<String> instructions = new ArrayList<>();
-        Key state;
-        Key previousState = Key.ACTIVATE;
-        for (var sequence : sequences) {
-            List<List<String>> tmp = new ArrayList<>();
-            for (char c : sequence.toCharArray()) {
-                state = Key.from(c);
-                tmp.add(paths(previousState, state));
-                previousState = state;
-            }
-            instructions.addAll(explode(tmp));
-        }
-        return instructions;
-    }
-
-    List<String> instructions3(List<String> sequence) {
-        return instructions(instructions(instructions(sequence)));
-    }
-
-    int complexity(String sequence) {
-        return instructions3(List.of(sequence)).stream().mapToInt(String::length).min().orElseThrow() * Integer.parseInt(sequence.replaceAll("A", ""));
-    }
-
-    List<String> paths(Key from, Key to) {
-        var cached = cache.get(new Pair(from, to));
+    String instructions(String sequence) {
+        var cached = INSTRUCTION_CACHE.get(sequence);
         if (cached != null) {
             return cached;
         }
+        Key state;
+        var sb = new StringBuilder();
+        Key previousState = Key.ACTIVATE;
+        for (char c : sequence.toCharArray()) {
+            state = Key.from(c);
+            sb.append(path(previousState, state));
+            previousState = state;
+        }
+        String instructions = sb.toString();
+        INSTRUCTION_CACHE.put(sequence, instructions);
+        return instructions;
+    }
+
+    Map<String, Long> sequenceMap(String instructions) {
+        if (instructions.equals("A")) {
+            return Map.of("A", 1L);
+        }
+        Map<String, Long> map = new HashMap<>();
+        for (String part : instructions.split("A")) {
+            map.compute(part + "A", (k, v) -> v == null ? 1L : v + 1L);
+        }
+        return map;
+    }
+
+    Map<String, Long> iterate(Map<String, Long> sequenceMap) {
+        Map<String, Long> map = new HashMap<>();
+        sequenceMap.forEach((sequence, a) ->
+                sequenceMap(instructions(sequence)).forEach((instruction, b) ->
+                        map.compute(instruction, (unused, c) -> c == null ? a * b : c + a * b)));
+        return map;
+    }
+
+    Map<String, Long> repeatInstructions(String sequence) {
+        var instructions = instructions(sequence);
+        Map<String, Long> sequenceMap = sequenceMap(instructions);
+        for (int i = 0; i < repeats; i++) {
+            sequenceMap = iterate(sequenceMap);
+        }
+        return sequenceMap;
+    }
+
+    long complexity(String sequence) {
+        return length(sequence) * value(sequence);
+    }
+
+    private long value(String sequence) {
+        return Long.parseLong(sequence.replaceAll("A", ""));
+    }
+
+    private long length(String sequence) {
+        return repeatInstructions(sequence).entrySet().stream().mapToLong(e -> e.getValue() * e.getKey().length()).sum();
+    }
+
+    String path(Key from, Key to) {
         var queue = new PriorityQueue<ND>();
         Set<Turn> visited = new HashSet<>();
         queue.add(new ND(from, 0, null, null));
-        List<ND> bestPaths = new ArrayList<>();
+        ND bestPath = null;
         while (!queue.isEmpty()) {
             var current = queue.remove();
             if (current.key() == to) {
-                if (bestPaths.isEmpty() || bestPaths.get(0).distance() == current.distance()) {
-                    bestPaths.add(current);
-                } else {
-                    break;
-                }
-            } else {
-                for (Neighbour neighbour : current.key().neighbours()) {
-                    var turn = new Turn(current.key(), current.direction(), neighbour.direction(), neighbour.key());
-                    if (!visited.contains(turn)) {
-                        visited.add(turn);
-                        queue.add(new ND(neighbour.key(), current.distance() + turn.cost(), neighbour.direction(), current));
-                    }
+                bestPath = current;
+                break;
+            }
+            for (Neighbour neighbour : current.key().neighbours()) {
+                var turn = new Turn(current.key(), current.direction(), neighbour.direction(), neighbour.key());
+                if (!visited.contains(turn)) {
+                    visited.add(turn);
+                    queue.add(new ND(neighbour.key(), current.distance() + turn.cost(), neighbour.direction(), current));
                 }
             }
-        }
-        List<String> paths = bestPaths.stream().map(ND::path).toList();
-        cache.put(new Pair(from, to), paths);
-        return paths;
-    }
-}
 
-record Pair(Key from, Key to) {
+        }
+        return Objects.requireNonNull(bestPath).path();
+    }
 }
 
 record Neighbour(Key direction, Key key) {
@@ -173,6 +183,14 @@ record Neighbour(Key direction, Key key) {
 
 record Turn(Key key, Key fromDirection, Key toDirection, Key toKey) {
     int cost() {
+        if (fromDirection == null) {
+            return switch (toDirection) {
+                case LEFT -> 50;
+                case UP, DOWN -> 100;
+                case RIGHT -> 200;
+                default -> throw new IllegalStateException();
+            };
+        }
         return fromDirection == toDirection ? 1 : 1000;
     }
 }
