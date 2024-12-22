@@ -61,6 +61,9 @@ class Market {
     }
 
     int bananas(byte[] pattern) {
+        if (impossible(pattern)) {
+            return 0;
+        }
         int bananas = 0;
         for (int i = 0; i < deltas.length; i++) {
             int pos = findFirst(deltas[i], pattern);
@@ -71,9 +74,28 @@ class Market {
         return bananas;
     }
 
+    boolean impossible(byte[] pattern) {
+        boolean possible;
+        for (byte start = -9; start <= 9; start++) {
+            possible = true;
+            int t = start;
+            for (byte b : pattern) {
+                t = t + b;
+                if (t < -9 || t > 9) {
+                    possible = false;
+                    break;
+                }
+            }
+            if (possible) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     void bruteForceIt() {
         int bestPrice = 0;
-        byte[] tryThese = new byte[]{0, 1, -1, 2, -2};
+        byte[] tryThese = new byte[]{0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8, 9, -9};
         for (byte i : tryThese) {
             for (byte j : tryThese) {
                 for (byte k : tryThese) {
