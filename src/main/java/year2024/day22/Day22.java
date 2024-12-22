@@ -37,17 +37,12 @@ class Puzzle {
 record Pair(long sumSecrets, int bestPrice) {
 }
 
-class Market {
+record Buyer(int initialSecret) {
     static final int ITERATIONS = 2000;
     static final int SEQUENCE_LENGTH = 4;
     static final int B24 = 0xffffff;
-    private final List<Integer> secrets;
 
-    Market(Stream<String> secrets) {
-        this.secrets = secrets.map(Integer::parseInt).toList();
-    }
-
-    void iterateBuyer(final int initialSecret, BiConsumer<String, Integer> priceWatcher, Consumer<Integer> secretWatcher) {
+    void iterate(BiConsumer<String, Integer> priceWatcher, Consumer<Integer> secretWatcher) {
         int secret = initialSecret;
         List<Integer> deltas = new ArrayList<>();
         Set<String> visited = new HashSet<>();
@@ -72,6 +67,13 @@ class Market {
         secretWatcher.accept(secret);
     }
 
+}
+
+record Market(List<Buyer> buyers) {
+    Market(Stream<String> secrets) {
+        this(secrets.map(s -> new Buyer(Integer.parseInt(s))).toList());
+    }
+
     Pair iterateAllBuyers() {
         Map<String, Integer> prices = new HashMap<>();
         class SumHolder {
@@ -82,8 +84,7 @@ class Market {
             }
         }
         var sumHolder = new SumHolder();
-        secrets.forEach(initialSecret -> iterateBuyer(
-                initialSecret,
+        buyers.forEach(buyer -> buyer.iterate(
                 ((pattern, price) -> prices.compute(pattern, (k, v) -> v == null ? price : v + price)),
                 sumHolder::add
         ));
