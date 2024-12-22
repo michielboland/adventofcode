@@ -169,7 +169,6 @@ class KeyPad {
                     queue.add(new ND(neighbour.key(), current.distance() + turn.cost(), neighbour.direction(), current));
                 }
             }
-
         }
         return Objects.requireNonNull(bestPath).path();
     }
