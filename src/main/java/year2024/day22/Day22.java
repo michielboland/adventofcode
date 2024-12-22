@@ -66,7 +66,6 @@ record Buyer(int initialSecret) {
         }
         secretWatcher.accept(secret);
     }
-
 }
 
 record Market(List<Buyer> buyers) {
