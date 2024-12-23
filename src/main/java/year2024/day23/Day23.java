@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Day23 {
     public static void main(String[] args) throws Exception {
@@ -16,40 +15,46 @@ public class Day23 {
 }
 
 class Puzzle {
-    final LanParty lanParty;
+    private final Set<Set<String>> computerPairs;
+    private final Set<String> computers; // slight speedup, not really needed
 
     Puzzle() throws Exception {
         try (var input = Objects.requireNonNull(getClass().getResourceAsStream("day23_input"))) {
-            lanParty = new LanParty(new BufferedReader(new InputStreamReader(input)).lines());
+            computerPairs = new BufferedReader(new InputStreamReader(input)).lines().map(Puzzle::pair).collect(Collectors.toSet());
+            computers = computerPairs.stream().flatMap(Set::stream).collect(Collectors.toSet());
         }
-    }
-
-    void solve() {
-        System.out.println(lanParty.countTripletsWithT());
-    }
-}
-
-record LanParty(Set<Set<String>> computerPairs) {
-    LanParty(Stream<String> lines) {
-        this(lines.map(LanParty::pair).collect(Collectors.toSet()));
     }
 
     static Set<String> pair(String line) {
         return Arrays.stream(line.split("-")).collect(Collectors.toSet());
     }
 
-    public int countTripletsWithT() {
-        Set<String> computersWithT = computerPairs.stream().flatMap(Set::stream).filter(s -> s.startsWith("t")).collect(Collectors.toSet());
-        Set<Set<String>> tripletsWithT = new HashSet<>();
-        for (var pair : computerPairs) {
-            for (var t : computersWithT) {
-                if (pair.stream().allMatch(s -> !s.equals(t) && computerPairs.contains(Set.of(s, t)))) {
-                    var triplet = new HashSet<>(pair);
-                    triplet.add(t);
-                    tripletsWithT.add(triplet);
+    long countTripletsWithT(Set<Set<String>> triplets) {
+        return triplets.stream().filter(s -> s.stream().anyMatch(t -> t.startsWith("t"))).count();
+    }
+
+    Set<Set<String>> embiggen(Set<Set<String>> cliques) {
+        Set<Set<String>> embiggened = new HashSet<>();
+        for (var clique : cliques) {
+            var others = new HashSet<>(computers);
+            others.removeAll(clique);
+            for (var other : others) {
+                if (clique.stream().allMatch(s -> computerPairs.contains(Set.of(s, other)))) {
+                    var biggerClique = new HashSet<>(clique);
+                    biggerClique.add(other);
+                    embiggened.add(biggerClique);
                 }
             }
         }
-        return tripletsWithT.size();
+        return embiggened;
+    }
+
+    void solve() {
+        var cliques = embiggen(computerPairs);
+        System.out.println(countTripletsWithT(cliques));
+        for (var bigger = embiggen(cliques); !bigger.isEmpty(); bigger = embiggen(bigger)) {
+            cliques = bigger;
+        }
+        System.out.println(cliques.iterator().next().stream().sorted(String::compareTo).collect(Collectors.joining(",")));
     }
 }
