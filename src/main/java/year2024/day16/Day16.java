@@ -101,7 +101,7 @@ record Grid(Set<Coordinate> walls, Coordinate start, Coordinate end) {
             }
             y++;
         }
-        return new Grid(Set.copyOf(walls), Objects.requireNonNull(start), Objects.requireNonNull(end));
+        return new Grid(walls, Objects.requireNonNull(start), Objects.requireNonNull(end));
     }
 
     Collection<ND> neighbours(ND nd) {
@@ -159,6 +159,19 @@ record Grid(Set<Coordinate> walls, Coordinate start, Coordinate end) {
                 nd = nd.previous;
             }
             return path;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ND nd = (ND) o;
+            return distance == nd.distance && Objects.equals(node, nd.node);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(node, distance);
         }
     }
 }
