@@ -62,6 +62,10 @@ record Coordinate(long x, long y) implements Comparable<Coordinate> {
         return new Coordinate(x + 1L, y);
     }
 
+    Set<Coordinate> neighbours() {
+        return Set.of(north(), south(), west(), east());
+    }
+
     private long[] toArray() {
         return new long[]{y, x};
     }
@@ -120,21 +124,10 @@ record TrailMap(Set<Coordinate> paths, Map<Coordinate, Heading> slopes, Coordina
     void findNodes() {
         nodes.add(start);
         nodes.add(end);
-        var visited = new TreeSet<Coordinate>();
-        var queue = new LinkedList<CH>();
-        queue.add(new CH(start, Heading.NOWHERE, 0L));
-        while (!queue.isEmpty()) {
-            var ch = queue.removeFirst();
-            visited.add(ch.coordinate);
-            var next = ch.next()
-                    .filter(nch -> paths.contains(nch.coordinate))
-                    .filter(nch -> !visited.contains(nch.coordinate))
-                    .collect(Collectors.toSet());
-            if (next.size() > 1) {
-                nodes.add(ch.coordinate);
-            }
-            queue.addAll(next);
-        }
+        nodes.addAll(paths.stream()
+                .filter(p -> p.neighbours().stream()
+                        .filter(paths::contains).count() > 2)
+                .toList());
     }
 
     long directDistanceBetweenNodes(Coordinate from, Coordinate to) {
