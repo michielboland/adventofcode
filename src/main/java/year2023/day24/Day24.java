@@ -3,13 +3,11 @@ package year2023.day24;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -19,28 +17,10 @@ record Coordinate3(long x, long y, long z) {
         return new Coordinate3(a[0], a[1], a[2]);
     }
 
-    Coordinate3 add(Coordinate3 other) {
-        return new Coordinate3(x + other.x, y + other.y, z + other.z);
-    }
-
-    Coordinate3 multiply(long scalar) {
-        return new Coordinate3(scalar * x, scalar * y, scalar * z);
-    }
-
-    Coordinate3 divide(long scalar) {
-        if (x % scalar != 0 || y % scalar != 0 || z % scalar != 0) {
-            throw new IllegalArgumentException("division would leave remainder");
-        }
-        return new Coordinate3(x / scalar, y / scalar, z / scalar);
-    }
-
     @Override
     public String toString() {
         return x + ", " + y + ", " + z;
     }
-}
-
-record Slice(long p, long v) {
 }
 
 record Hailstone(Coordinate3 p, Coordinate3 v) {
@@ -50,10 +30,6 @@ record Hailstone(Coordinate3 p, Coordinate3 v) {
     static Hailstone from(String s) {
         var a = Arrays.stream(s.split(" @ +")).map(Coordinate3::from).toArray(Coordinate3[]::new);
         return new Hailstone(a[0], a[1]);
-    }
-
-    Hailstone positionAt(long t) {
-        return new Hailstone(p.add(v.multiply(t)), v);
     }
 
     boolean willReach(double x, double y) {
@@ -84,25 +60,9 @@ record Hailstone(Coordinate3 p, Coordinate3 v) {
         return false;
     }
 
-    Slice x() {
-        return new Slice(p.x(), v.x());
-    }
-
-    Slice y() {
-        return new Slice(p.y(), v.y());
-    }
-
-    Slice z() {
-        return new Slice(p.z(), v.z());
-    }
-
     @Override
     public String toString() {
         return p + " @ " + v;
-    }
-
-    Hailstone merge(Hailstone other) {
-        throw new IllegalStateException();
     }
 }
 
@@ -120,31 +80,51 @@ record WeatherMap(List<Hailstone> hailstones) {
     }
 
     long solve2() {
-        List<Function<Hailstone, Slice>> slicers = List.of(Hailstone::x, Hailstone::y, Hailstone::z);
-        var collisionRecords = slicers.stream().flatMap(slicer -> hailstones.stream().filter(candidate -> hailstones.stream().filter(h -> !h.equals(candidate)).allMatch(h -> {
-            var differenceInPosition = slicer.apply(h).p() - slicer.apply(candidate).p();
-            var differenceInVelocity = slicer.apply(h).v() - slicer.apply(candidate).v();
-            return differenceInVelocity != 0 && differenceInPosition % differenceInVelocity == 0 && differenceInPosition / differenceInVelocity < 0;
-        })).map(candidate ->
-                hailstones.stream().filter(h -> !h.equals(candidate)).map(h -> {
-                    var collisionTime = (slicer.apply(h).p() - slicer.apply(candidate).p()) / (slicer.apply(candidate).v() - slicer.apply(h).v());
-                    return new Collision(collisionTime, h.positionAt(collisionTime));
-                }).collect(Collectors.toMap(Collision::when, Collision::hailstone, Hailstone::merge, TreeMap::new)))).toList();
-        // somehow we got two results - ignore the second one
-        SortedMap<Long, Hailstone> result = collisionRecords.get(0);
-        var i = result.entrySet().iterator();
-        var first = i.next();
-        var second = i.next();
-        var firstCollisionTime = first.getKey();
-        var firstHailstone = first.getValue();
-        var secondCollisionTime = second.getKey();
-        var secondHailstone = second.getValue();
-        var velocity = secondHailstone.p().add(firstHailstone.p().multiply(-1)).divide(secondCollisionTime - firstCollisionTime);
-        var magic = firstHailstone.p().add(velocity.multiply(-firstCollisionTime));
-        return magic.x() + magic.y() + magic.z();
-    }
-
-    record Collision(Long when, Hailstone hailstone) {
+        /*
+         * This solution is based on the fact that for each hailstone, the difference between the rock's initial position
+         * and the hailstone's initial position must be a (negative) multiple of the difference between the rock's velocity
+         * and the hailstone's velocity. So the cross product of these two differences must be zero. This gets rid of
+         * the time factor.
+         * The cross product gives three second-degree equations for the six unknowns (px, py, pz, vx, vy, vz), where p indicates
+         * the rock position and v the rock velocity.
+         * We can get rid of the quadratic terms by subtracting equations for different hailstones.
+         * This leaves three sets of four equations with four unknowns, which we then solve using Gauss elimination.
+         * Note we only use the full first set of four and only half of the second set. (You could use the other solutions
+         * to verify that they equal the ones we already found.)
+         */
+        List<List<Long>> rowsYZ = new ArrayList<>();
+        List<List<Long>> rowsZX = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            var h1 = hailstones.get(i);
+            var h2 = hailstones.get(i + 1);
+            var p1 = h1.p();
+            var v1 = h1.v();
+            var p2 = h2.p();
+            var v2 = h2.v();
+            rowsYZ.add(List.of(
+                    v2.z() - v1.z(),
+                    v1.y() - v2.y(),
+                    p1.z() - p2.z(),
+                    p2.y() - p1.y(),
+                    p2.y() * v2.z() - p1.y() * v1.z()
+                            + p1.z() * v1.y() - p2.z() * v2.y()
+            ));
+            rowsZX.add(List.of(
+                    v2.x() - v1.x(),
+                    v1.z() - v2.z(),
+                    p1.x() - p2.x(),
+                    p2.z() - p1.z(),
+                    p2.z() * v2.x() - p1.z() * v1.x()
+                            + p1.x() * v1.z() - p2.x() * v2.z()
+            ));
+        }
+        var yz = new Solver().solve(rowsYZ);
+        var zx = new Solver().solve(rowsZX);
+        /*
+         * The YZ solution has (py, pz, vy, vz)
+         * The ZX solution has (pz, px, vz, vx)
+         */
+        return zx.get(1) + yz.get(0) + yz.get(1);
     }
 }
 
@@ -156,6 +136,76 @@ class Puzzle {
             System.out.println(map.solve());
             System.out.println(map.solve2());
         }
+    }
+}
+
+class Solver {
+    private void pivot(List<ArrayList<BigInteger>> matrix, int from, int to) {
+        var cell = matrix.get(to).get(from);
+        if (cell.equals(BigInteger.ZERO)) {
+            return;
+        }
+        var pivot = matrix.get(from).get(from);
+        var gcd = cell.abs().gcd(pivot);
+        var row = matrix.get(to);
+        var addendum = matrix.get(from);
+        for (int i = 0; i < row.size(); i++) {
+            row.set(i, row.get(i).multiply(pivot.divide(gcd).negate()).add(addendum.get(i).multiply(cell.divide(gcd))));
+        }
+    }
+
+    private void rowEchelon(List<ArrayList<BigInteger>> matrix) {
+        for (int row = 0; row < matrix.size(); row++) {
+            if (matrix.get(row).get(row).equals(BigInteger.ZERO)) {
+                // not needed for my current input but just to make sure that it works for all inputs
+                for (int n = row + 1; n < matrix.size(); n++) {
+                    var replacement = matrix.get(n).get(row);
+                    if (!replacement.equals(BigInteger.ZERO)) {
+                        var row1 = matrix.get(row);
+                        var addendum = matrix.get(n);
+                        for (int i = 0; i < row1.size(); i++) {
+                            row1.set(i, row1.get(i).multiply(BigInteger.ONE).add(addendum.get(i).multiply(BigInteger.ONE)));
+                        }
+                        break;
+                    }
+                }
+            }
+            for (int nextRow = row + 1; nextRow < matrix.size(); nextRow++) {
+                pivot(matrix, row, nextRow);
+            }
+        }
+    }
+
+    private void reducedRowEchelon(List<ArrayList<BigInteger>> matrix) {
+        for (int row = matrix.size() - 1; row >= 0; row--) {
+            if (matrix.get(row).get(row).compareTo(BigInteger.ZERO) < 0) {
+                matrix.get(row).replaceAll(BigInteger::negate);
+            }
+            for (int nextRow = row - 1; nextRow >= 0; nextRow--) {
+                pivot(matrix, row, nextRow);
+            }
+        }
+    }
+
+    List<Long> solve(List<List<Long>> matrix) {
+        // convert to BigInteger to avoid rounding errors, even though the solutions are all integers
+        List<ArrayList<BigInteger>> copy = new ArrayList<>();
+        for (var row : matrix) {
+            var rowCopy = new ArrayList<>(row.stream().map(BigInteger::valueOf).toList());
+            copy.add(rowCopy);
+        }
+        rowEchelon(copy);
+        reducedRowEchelon(copy);
+        List<Long> solution = new ArrayList<>();
+        for (int row = 0; row < matrix.size(); row++) {
+            var diagonal = copy.get(row).get(row);
+            var rhs = copy.get(row).get(matrix.size());
+            if (!rhs.mod(diagonal).equals(BigInteger.ZERO)) {
+                throw new IllegalStateException();
+            }
+            solution.add(rhs.divide(diagonal).longValue());
+        }
+        return solution;
     }
 }
 
