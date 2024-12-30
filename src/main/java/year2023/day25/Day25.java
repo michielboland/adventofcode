@@ -4,15 +4,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -21,10 +19,6 @@ record Apparatus(Map<String, Set<String>> connections) {
         var apparatus = new Apparatus(new HashMap<>());
         lines.forEach(apparatus::parse);
         return apparatus;
-    }
-
-    static String combine(String a, String b) {
-        return a.compareTo(b) < 0 ? a + " " + b : b + " " + a;
     }
 
     void link(String from, String to) {
@@ -54,52 +48,72 @@ record Apparatus(Map<String, Set<String>> connections) {
         Arrays.stream(lr[1].split(" ")).forEach(b -> addConnection(a, b));
     }
 
-    Map<String, ND> dijkstra(String node) {
+    Set<Set<String>> edgesFrom(String node) {
+        Set<Set<String>> edges = new HashSet<>();
         var queue = new PriorityQueue<ND>();
         Set<String> visited = new HashSet<>();
-        Map<String, ND> distanceMap = new HashMap<>();
-        queue.add(new ND(node, 0));
+        queue.add(new ND(node, 0, null));
         while (!queue.isEmpty()) {
             var current = queue.remove();
-            visited.add(current.node);
-            connections.get(current.node).stream()
-                    .filter(s -> !visited.contains(s))
-                    .filter(s -> !distanceMap.containsKey(s) || distanceMap.get(s).distance > current.distance + 1)
-                    .forEach(s -> {
-                        distanceMap.put(s, new ND(current.node, current.distance + 1));
-                        queue.add(new ND(s, current.distance + 1));
-                    });
+            if (!visited.contains(current.node)) {
+                visited.add(current.node);
+                if (current.previous == null) {
+                    edges.add(Set.of(current.node));
+                } else {
+                    edges.add(Set.of(current.node, current.previous.node));
+                }
+            }
+            for (String s : connections.get(current.node)) {
+                if (!visited.contains(s)) {
+                    queue.add(new ND(s, current.distance + 1, current));
+                }
+            }
         }
-        return distanceMap;
+        return edges;
     }
 
     void solve() {
-        String randomNode = connections.keySet().stream().findFirst().orElseThrow();
-        var totalSize = dijkstra(randomNode).size();
-        var allNodes = connections.values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
-        record PathComponent(String label, AtomicInteger counter) implements Comparable<PathComponent> {
-            @Override
-            public int compareTo(PathComponent o) {
-                var c = Integer.compare(counter.get(), o.counter.get());
-                return c != 0 ? c : label.compareTo(o.label);
-            }
+        var top3 = connections.keySet().stream()
+                .flatMap(s1 -> edgesFrom(s1).stream())
+                .collect(Collectors.groupingBy(s1 -> s1, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.<Set<String>, Long>comparingByValue().reversed())
+                .limit(3L)
+                .map(Map.Entry::getKey)
+                .toList();
+        for (var s : top3) {
+            var pair = new TreeSet<>(s);
+            removeConnection(pair.first(), pair.last());
         }
-        Map<String, PathComponent> pathComponents = new HashMap<>();
-        allNodes.forEach(s -> dijkstra(s).forEach((k, v) -> {
-            var label = combine(k, v.node);
-            pathComponents.computeIfAbsent(label, t -> new PathComponent(t, new AtomicInteger())).counter.incrementAndGet();
-        }));
-        pathComponents.values().stream().sorted(Comparator.reverseOrder()).limit(3L).map(PathComponent::label).map(s -> s.split(" ")).forEach(s -> removeConnection(s[0], s[1]));
-        var reducedSize = dijkstra(randomNode).size();
-        System.out.println(reducedSize * (totalSize - reducedSize));
+        var topEdge = new TreeSet<>(top3.get(0));
+        System.out.println(edgesFrom(topEdge.first()).size() * edgesFrom(topEdge.last()).size());
     }
 
-    record ND(String node, int distance) implements Comparable<ND> {
+    record ND(String node, int distance, ND previous) implements Comparable<ND> {
 
         @Override
         public int compareTo(ND o) {
             int d = Integer.compare(distance, o.distance);
             return d != 0 ? d : node.compareTo(o.node);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ND nd = (ND) o;
+            return distance == nd.distance && Objects.equals(node, nd.node);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(node, distance);
+        }
+
+        @Override
+        public String toString() {
+            return "ND{node='" + node + "', distance=" + distance + '}';
         }
     }
 }
