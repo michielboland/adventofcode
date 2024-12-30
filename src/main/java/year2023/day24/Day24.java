@@ -17,6 +17,14 @@ record Coordinate3(long x, long y, long z) {
         return new Coordinate3(a[0], a[1], a[2]);
     }
 
+    Coordinate3 subtract(Coordinate3 other) {
+        return new Coordinate3(x - other.x, y - other.y, z - other.z);
+    }
+
+    Coordinate3 crossProduct(Coordinate3 other) {
+        return new Coordinate3(y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x);
+    }
+
     @Override
     public String toString() {
         return x + ", " + y + ", " + z;
@@ -97,25 +105,22 @@ record WeatherMap(List<Hailstone> hailstones) {
         for (int i = 0; i < 4; i++) {
             var h1 = hailstones.get(i);
             var h2 = hailstones.get(i + 1);
-            var p1 = h1.p();
-            var v1 = h1.v();
-            var p2 = h2.p();
-            var v2 = h2.v();
+            var dp = h2.p().subtract(h1.p());
+            var dv = h2.v().subtract(h1.v());
+            var dc = h2.p().crossProduct(h2.v()).subtract(h1.p().crossProduct(h1.v()));
             rowsYZ.add(List.of(
-                    v2.z() - v1.z(),
-                    v1.y() - v2.y(),
-                    p1.z() - p2.z(),
-                    p2.y() - p1.y(),
-                    p2.y() * v2.z() - p1.y() * v1.z()
-                            + p1.z() * v1.y() - p2.z() * v2.y()
+                    dv.z(),
+                    -dv.y(),
+                    -dp.z(),
+                    dp.y(),
+                    dc.x()
             ));
             rowsZX.add(List.of(
-                    v2.x() - v1.x(),
-                    v1.z() - v2.z(),
-                    p1.x() - p2.x(),
-                    p2.z() - p1.z(),
-                    p2.z() * v2.x() - p1.z() * v1.x()
-                            + p1.x() * v1.z() - p2.x() * v2.z()
+                    dv.x(),
+                    -dv.z(),
+                    -dp.x(),
+                    dp.z(),
+                    dc.y()
             ));
         }
         var yz = new Solver().solve(rowsYZ);
