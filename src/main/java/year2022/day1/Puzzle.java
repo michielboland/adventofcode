@@ -3,6 +3,7 @@ package year2022.day1;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -20,10 +21,11 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(maxCalories());
+        System.out.println(maxCalories(1));
+        System.out.println(maxCalories(3));
     }
 
-    int maxCalories() {
-        return calories.stream().mapToInt(l -> l.stream().mapToInt(i -> i).sum()).max().orElseThrow();
+    int maxCalories(long n) {
+        return calories.stream().map(l -> l.stream().mapToInt(i -> i).sum()).sorted(Collections.reverseOrder()).limit(n).mapToInt(i -> i).sum();
     }
 }
