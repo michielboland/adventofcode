@@ -6,34 +6,67 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 enum Hand {
-    ROCK(1), PAPER(2), SCISSORS(3);
+    ROCK(0), PAPER(1), SCISSORS(2);
 
-    final int score;
+    private final int value;
 
-    Hand(int score) {
-        this.score = score;
+    Hand(int value) {
+        this.value = value;
+    }
+
+    int score() {
+        return value + 1;
+    }
+
+    static Hand from(int value) {
+        return Arrays.stream(values()).filter(hand -> hand.value == value % 3).findFirst().orElseThrow();
+    }
+
+    Hand winner() {
+        return from(value + 1);
+    }
+
+    Hand loser() {
+        return from(value + 2);
     }
 
     boolean beats(Hand other) {
-        return score % 3 == (other.score + 1) % 3;
+        return value % 3 == (other.value + 1) % 3;
     }
 }
 
 record Round(Hand me, Hand opponent) {
-    Round(String line, Map<Character, Hand> opponentMap, Map<Character, Hand> elfMap) {
-        this(elfMap.get(line.charAt(2)), opponentMap.get(line.charAt(0)));
+    private static final Map<Character, Hand> OPPONENT_MAP = Map.of('A', Hand.ROCK, 'B', Hand.PAPER, 'C', Hand.SCISSORS);
+    private static final Map<Character, Hand> ELF_MAP = Map.of('X', Hand.ROCK, 'Y', Hand.PAPER, 'Z', Hand.SCISSORS);
+    private static final Map<Character, Function<Hand, Hand>> STRATEGY_MAP = Map.of('X', Hand::loser, 'Y', Function.identity(), 'Z', Hand::winner);
+
+    static Round guess(String line) {
+        return new Round(ELF_MAP.get(line.charAt(2)), OPPONENT_MAP.get(line.charAt(0)));
+    }
+
+    static Round withStrategy(String line) {
+        return new Round(STRATEGY_MAP.get(line.charAt(2)), OPPONENT_MAP.get(line.charAt(0)));
+    }
+
+    public Round(Function<Hand, Hand> strategy, Hand hand) {
+        this(strategy.apply(hand), hand);
     }
 
     int score() {
-        return me.score + (me == opponent ? 3 : me.beats(opponent) ? 6 : 0);
+        return me.score() + (me == opponent ? 3 : me.beats(opponent) ? 6 : 0);
     }
 }
 
 record Tournament(List<Round> rounds) {
-    static Tournament from(List<String> input, Map<Character, Hand> opponentMap, Map<Character, Hand> elfMap) {
-        return new Tournament(input.stream().map(line -> new Round(line, opponentMap, elfMap)).toList());
+    static Tournament guess(List<String> input) {
+        return new Tournament(input.stream().map(Round::guess).toList());
+    }
+
+    static Tournament withStrategy(List<String> input) {
+        return new Tournament(input.stream().map(Round::withStrategy).toList());
     }
 
     int score() {
@@ -42,8 +75,6 @@ record Tournament(List<Round> rounds) {
 }
 
 public class Puzzle {
-    private final Map<Character, Hand> opponentMap = Map.of('A', Hand.ROCK, 'B', Hand.PAPER, 'C', Hand.SCISSORS);
-    private final Map<Character, Hand> elfMap = Map.of('X', Hand.ROCK, 'Y', Hand.PAPER, 'Z', Hand.SCISSORS);
     private final List<String> input;
 
     Puzzle() throws Exception {
@@ -56,9 +87,14 @@ public class Puzzle {
 
     void solve() {
         System.out.println(part1());
+        System.out.println(part2());
     }
 
     int part1() {
-        return Tournament.from(input, opponentMap, elfMap).score();
+        return Tournament.guess(input).score();
+    }
+
+    int part2() {
+        return Tournament.withStrategy(input).score();
     }
 }
