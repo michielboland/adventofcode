@@ -20,9 +20,10 @@ public class Puzzle {
 
     void solve() {
         System.out.println(startPosition(4));
+        System.out.println(startPosition(14));
     }
 
-    int startPosition(@SuppressWarnings("SameParameterValue") final int n) {
+    int startPosition(final int n) {
         List<Character> chars = new ArrayList<>();
         for (int i = 0; i < data.length(); i++) {
             if (chars.size() == n) {
