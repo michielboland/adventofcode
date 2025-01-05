@@ -20,10 +20,15 @@ public class Puzzle {
 
     void solve() {
         System.out.println(part1());
+        System.out.println(part2());
     }
 
     long part1() {
         return pairs.stream().filter(Pair::contained).count();
+    }
+
+    long part2() {
+        return pairs.stream().filter(Pair::overlapped).count();
     }
 }
 
@@ -36,6 +41,10 @@ record Range(int from, int to) {
     boolean contains(Range other) {
         return from <= other.from && to >= other.to;
     }
+
+    boolean overlaps(Range other) {
+        return from <= other.to && to >= other.from;
+    }
 }
 
 record Pair(Range left, Range right) {
@@ -46,5 +55,9 @@ record Pair(Range left, Range right) {
 
     boolean contained() {
         return left.contains(right) || right.contains(left);
+    }
+
+    boolean overlapped() {
+        return left.overlaps(right);
     }
 }
