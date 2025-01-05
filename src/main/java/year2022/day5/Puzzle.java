@@ -25,11 +25,12 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(part1());
+        System.out.println(moveCrates(true));
+        System.out.println(moveCrates(false));
     }
 
-    String part1() {
-        return instructions.apply(initialSupplies).topCrates();
+    String moveCrates(boolean reverse) {
+        return instructions.apply(initialSupplies, reverse).topCrates();
     }
 }
 
@@ -47,10 +48,13 @@ record Supplies(Map<Integer, String> stacks) {
         return new Supplies(stacks);
     }
 
-    Supplies adjust(Move move) {
+    Supplies adjust(Move move, boolean reverse) {
         Map<Integer, String> adjustedStacks = new HashMap<>(stacks);
         var stackFrom = adjustedStacks.get(move.from());
-        var take = new StringBuilder(stackFrom.substring(0, move.count())).reverse().toString();
+        var take = new StringBuilder(stackFrom.substring(0, move.count()));
+        if (reverse) {
+            take.reverse();
+        }
         adjustedStacks.put(move.from(), stackFrom.substring(move.count()));
         adjustedStacks.compute(move.to(), (k, v) -> take + v);
         return new Supplies(adjustedStacks);
@@ -73,10 +77,10 @@ record Instructions(List<Move> moves) {
         return new Instructions(Arrays.stream(string.split("\n")).map(Move::from).toList());
     }
 
-    Supplies apply(final Supplies initial) {
+    Supplies apply(final Supplies initial, boolean reverse) {
         var supplies = initial;
         for (var move : moves) {
-            supplies = supplies.adjust(move);
+            supplies = supplies.adjust(move, reverse);
         }
         return supplies;
     }
