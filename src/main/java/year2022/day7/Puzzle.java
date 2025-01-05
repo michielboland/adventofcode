@@ -10,6 +10,7 @@ import java.util.Objects;
 
 public class Puzzle {
     private final FileSystem fileSystem = new FileSystem();
+    private final Map<String, Long> sizes = new HashMap<>();
 
     Puzzle() throws Exception {
         var data = Files.readString(Paths.get(Objects.requireNonNull(getClass().getResource("day7_input")).toURI()));
@@ -34,7 +35,7 @@ public class Puzzle {
                     if (parts[0].equals("dir")) {
                         fileSystem.createDirectory(directory, parts[1]);
                     } else {
-                        directory.files().add(new File(parts[1], Long.parseLong(parts[0])));
+                        directory.fileSizes().add(Long.parseLong(parts[0]));
                     }
                 }
             }
@@ -47,10 +48,17 @@ public class Puzzle {
 
     void solve() {
         System.out.println(part1());
+        System.out.println(part2());
     }
 
     long part1() {
-        return fileSystem.directories().keySet().stream().mapToLong(fileSystem::size).filter(l -> l <= 100000).sum();
+        fileSystem.directories().forEach((k, v) -> sizes.put(k, fileSystem.size(k)));
+        return sizes.values().stream().filter(l -> l <= 100000).mapToLong(l -> l).sum();
+    }
+
+    long part2() {
+        long total = sizes.get("/");
+        return sizes.values().stream().filter(l -> total - l <= 40000000).mapToLong(l -> l).min().orElseThrow();
     }
 }
 
@@ -70,7 +78,7 @@ record FileSystem(Map<String, Directory> directories) {
     }
 }
 
-record Directory(String path, List<File> files) {
+record Directory(String path, List<Long> fileSizes) {
     Directory(String path) {
         this(path, new ArrayList<>());
     }
@@ -80,9 +88,6 @@ record Directory(String path, List<File> files) {
     }
 
     long size() {
-        return files.stream().mapToLong(File::size).sum();
+        return fileSizes.stream().mapToLong(l -> l).sum();
     }
-}
-
-record File(String name, long size) {
 }
