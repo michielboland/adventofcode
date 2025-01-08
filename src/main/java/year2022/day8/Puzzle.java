@@ -26,12 +26,10 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(part1());
+        System.out.println(grid.visibleTrees());
+        System.out.println(grid.maxScenicScore());
     }
 
-    int part1() {
-        return grid.visibleTrees().size();
-    }
 }
 
 enum Heading {
@@ -81,7 +79,7 @@ record Viewpoint(Coordinate position, Heading heading) {
     }
 }
 
-record Grid(Map<Coordinate, Integer> trees, Collection<Viewpoint> viewpoints) {
+record Grid(Map<Coordinate, Integer> trees, Collection<Viewpoint> viewpoints, int gridWidth, int gridHeight) {
     static Grid from(Stream<String> lines) {
         Map<Coordinate, Integer> trees = new HashMap<>();
         int width = 0;
@@ -95,21 +93,53 @@ record Grid(Map<Coordinate, Integer> trees, Collection<Viewpoint> viewpoints) {
             }
             ++y;
         }
-        return new Grid(trees, Viewpoint.viewpoints(width, y));
+        return new Grid(trees, Viewpoint.viewpoints(width, y), width, y);
     }
 
-    Set<Coordinate> visibleTrees() {
-        Map<Coordinate, Set<Heading>> visibleTrees = new HashMap<>();
+    int maxScenicScore() {
+        int maxScenicScore = 0;
+        for (int y = 1; y < gridHeight - 1; y++) {
+            for (int x = 1; x < gridWidth - 1; x++) {
+                var scenicScore = scenicScore(x, y);
+                if (scenicScore > maxScenicScore) {
+                    maxScenicScore = scenicScore;
+                }
+            }
+        }
+        return maxScenicScore;
+    }
+
+    private int scenicScore(int x, int y) {
+        var tree = new Coordinate(x, y);
+        var height = trees.get(tree);
+        var viewingDistances = new int[4];
+        for (var heading : Heading.values()) {
+            int visible = 0;
+            var pos = heading.mover.apply(tree);
+            do {
+                ++visible;
+                if (trees.get(pos) >= height) {
+                    break;
+                }
+                pos = heading.mover.apply(pos);
+            } while (trees.containsKey(pos));
+            viewingDistances[heading.ordinal()] = visible;
+        }
+        return viewingDistances[0] * viewingDistances[1] * viewingDistances[2] * viewingDistances[3];
+    }
+
+    int visibleTrees() {
+        Set<Coordinate> visibleTrees = new HashSet<>();
         viewpoints.forEach(viewpoint -> {
             int max = -1;
             for (var v = viewpoint; trees.containsKey(v.position()); v = v.move()) {
                 int treeHeight = trees.get(v.position());
                 if (treeHeight > max) {
                     max = treeHeight;
-                    visibleTrees.computeIfAbsent(v.position(), c -> new HashSet<>()).add(v.heading());
+                    visibleTrees.add(v.position());
                 }
             }
         });
-        return visibleTrees.keySet();
+        return visibleTrees.size();
     }
 }
