@@ -43,6 +43,7 @@ enum Heading {
         this.mover = mover;
     }
 }
+
 record Coordinate(int x, int y) {
     Coordinate north() {
         return new Coordinate(x, y - 1);
