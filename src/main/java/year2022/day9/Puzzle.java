@@ -2,6 +2,7 @@ package year2022.day9;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -23,12 +24,14 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(part1());
+        System.out.println(withKnots(2));
+        // 2447 is too low
+        System.out.println(withKnots(10));
     }
 
-    int part1() {
+    int withKnots(int n) {
         Set<Coordinate> visited = new HashSet<>();
-        var rope = new Rope();
+        var rope = Rope.withKnots(n);
         visited.add(rope.tail());
         for (var instruction : instructions) {
             for (int i = 0; i < instruction.steps(); i++) {
@@ -90,14 +93,25 @@ record Instruction(Heading heading, int steps) {
     }
 }
 
-record Rope(Coordinate head, Coordinate tail) {
-    Rope() {
-        this(Coordinate.START, Coordinate.START);
+record Rope(List<Coordinate> knots) {
+    static Rope withKnots(int n) {
+        List<Coordinate> knots = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            knots.add(Coordinate.START);
+        }
+        return new Rope(knots);
     }
 
     Rope moveHead(Heading heading) {
-        var newHead = head.move(heading);
-        var newTail = newHead.closest(tail);
-        return new Rope(newHead, newTail);
+        List<Coordinate> newKnots = new ArrayList<>();
+        newKnots.add(knots.get(0).move(heading));
+        for (int i = 1; i < knots.size(); i++) {
+            newKnots.add(newKnots.get(i - 1).closest(knots.get(i)));
+        }
+        return new Rope(newKnots);
+    }
+
+    Coordinate tail() {
+        return knots.get(knots.size() - 1);
     }
 }
