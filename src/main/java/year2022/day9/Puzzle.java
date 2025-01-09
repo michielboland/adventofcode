@@ -63,13 +63,13 @@ record Coordinate(int x, int y) {
         return heading.mover.apply(this);
     }
 
-    boolean isAdjacentTo(Coordinate other) {
-        return x >= other.x - 1 && x <= other.x + 1 && y >= other.y - 1 && y <= other.y + 1;
+    Coordinate closest(Coordinate other) {
+        return x > other.x + 1 ? west() : x < other.x - 1 ? east() : y > other.y + 1 ? north() : y < other.y - 1 ? south() : other;
     }
 }
 
 enum Heading {
-    NORTH('U', Coordinate::north), SOUTH('D', Coordinate::south), WEST('L', Coordinate::west), EAST('R', Coordinate::east), NOWHERE('s', Function.identity());
+    NORTH('U', Coordinate::north), SOUTH('D', Coordinate::south), WEST('L', Coordinate::west), EAST('R', Coordinate::east);
 
     final char label;
     final Function<Coordinate, Coordinate> mover;
@@ -77,16 +77,6 @@ enum Heading {
     Heading(char label, Function<Coordinate, Coordinate> mover) {
         this.label = label;
         this.mover = mover;
-    }
-
-    Heading opposite() {
-        return switch (this) {
-            case NORTH -> SOUTH;
-            case SOUTH -> NORTH;
-            case EAST -> WEST;
-            case WEST -> EAST;
-            case NOWHERE -> NOWHERE;
-        };
     }
 
     static Heading from(char label) {
@@ -107,7 +97,7 @@ record Rope(Coordinate head, Coordinate tail) {
 
     Rope moveHead(Heading heading) {
         var newHead = head.move(heading);
-        var newTail = newHead.isAdjacentTo(tail) ? tail : newHead.move(heading.opposite());
+        var newTail = newHead.closest(tail);
         return new Rope(newHead, newTail);
     }
 }
