@@ -25,7 +25,6 @@ public class Puzzle {
 
     void solve() {
         System.out.println(withKnots(2));
-        // 2447 is too low
         System.out.println(withKnots(10));
     }
 
@@ -67,7 +66,13 @@ record Coordinate(int x, int y) {
     }
 
     Coordinate closest(Coordinate other) {
-        return x > other.x + 1 ? west() : x < other.x - 1 ? east() : y > other.y + 1 ? north() : y < other.y - 1 ? south() : other;
+        return Math.abs(x - other.x) == 2
+                ? Math.abs(y - other.y) == 2
+                ? new Coordinate((x + other.x) / 2, (y + other.y) / 2)
+                : new Coordinate((x + other.x) / 2, y)
+                : Math.abs(y - other.y) == 2
+                ? new Coordinate(x, (y + other.y) / 2)
+                : other;
     }
 }
 
