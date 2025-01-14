@@ -19,13 +19,10 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(part1());
-    }
-
-    int part1() {
         var computer = new Computer();
         instructions.forEach(computer::execute);
-        return computer.totalSignalStrength;
+        System.out.println(computer.totalSignalStrength);
+        System.out.println(computer.display());
     }
 }
 
@@ -33,10 +30,13 @@ class Computer {
     int cycleCounter;
     int x = 1;
     int totalSignalStrength;
+    final StringBuilder output = new StringBuilder();
 
     void step() {
+        var column = cycleCounter % 40;
+        output.append(column == x - 1 || column == x || column == x + 1 ? '#' : '.');
         ++cycleCounter;
-        if (cycleCounter % 40 == 20) {
+        if (column == 20) {
             totalSignalStrength += cycleCounter * x;
         }
     }
@@ -53,5 +53,14 @@ class Computer {
             }
             default -> throw new IllegalArgumentException();
         }
+    }
+
+    String display() {
+        var sb = new StringBuilder();
+        var lines = output.toString();
+        for (int i = 0; i < 240; i += 40) {
+            sb.append(lines, i, i + 40).append('\n');
+        }
+        return sb.toString();
     }
 }
