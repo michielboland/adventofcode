@@ -49,24 +49,29 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(shortestDistance());
+        var distanceMap = distanceMap();
+        System.out.println(distanceMap.get(start));
+        System.out.println(distanceMap.values().stream().mapToInt(i -> i).min().orElseThrow());
     }
 
-    int shortestDistance() {
+    Map<Coordinate, Integer> distanceMap() {
+        Map<Coordinate, Integer> distanceMap = new HashMap<>();
         var queue = new PriorityQueue<ND>();
         Set<CH> visited = new HashSet<>();
-        queue.add(new ND(new CH(start, Heading.NOWHERE), 0, null));
+        queue.add(new ND(new CH(end, Heading.NOWHERE), 0, null));
         while (!queue.isEmpty()) {
             var current = queue.remove();
             var currentPos = current.ch().coordinate();
-            if (end.equals(currentPos)) {
-                return current.distance();
+            if (grid.get(currentPos) == 0) {
+                if (!distanceMap.containsKey(currentPos)) {
+                    distanceMap.put(currentPos, current.distance());
+                }
             }
             var currentHeight = grid.get(currentPos);
             for (var heading : Heading.headings()) {
                 var nextPos = currentPos.move(heading);
                 var nextHeight = grid.get(nextPos);
-                if (nextHeight != null && nextHeight <= currentHeight + 1) {
+                if (nextHeight != null && nextHeight >= currentHeight - 1) {
                     var ch = new CH(nextPos, heading);
                     if (!visited.contains(ch)) {
                         visited.add(ch);
@@ -76,7 +81,7 @@ public class Puzzle {
             }
 
         }
-        throw new IllegalStateException();
+        return distanceMap;
     }
 }
 
