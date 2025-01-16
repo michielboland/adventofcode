@@ -2,7 +2,6 @@ package year2022.day12;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -58,7 +57,7 @@ public class Puzzle {
         Map<Coordinate, Integer> distanceMap = new HashMap<>();
         var queue = new PriorityQueue<ND>();
         Set<CH> visited = new HashSet<>();
-        queue.add(new ND(new CH(end, Heading.NOWHERE), 0, null));
+        queue.add(new ND(new CH(end, null), 0));
         while (!queue.isEmpty()) {
             var current = queue.remove();
             var currentPos = current.ch().coordinate();
@@ -68,14 +67,14 @@ public class Puzzle {
                 }
             }
             var currentHeight = grid.get(currentPos);
-            for (var heading : Heading.headings()) {
+            for (var heading : Heading.values()) {
                 var nextPos = currentPos.move(heading);
                 var nextHeight = grid.get(nextPos);
                 if (nextHeight != null && nextHeight >= currentHeight - 1) {
                     var ch = new CH(nextPos, heading);
                     if (!visited.contains(ch)) {
                         visited.add(ch);
-                        queue.add(new ND(ch, current.distance() + 1, current));
+                        queue.add(new ND(ch, current.distance() + 1));
                     }
                 }
             }
@@ -85,37 +84,20 @@ public class Puzzle {
     }
 }
 
-record ND(CH ch, int distance, ND previous) implements Comparable<ND> {
+record ND(CH ch, int distance) implements Comparable<ND> {
     @Override
     public int compareTo(ND o) {
         return distance == o.distance ? ch.compareTo(o.ch) : Integer.compare(distance, o.distance);
     }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ND nd = (ND) o;
-        return distance == nd.distance && Objects.equals(ch, nd.ch);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(ch, distance);
-    }
 }
 
 enum Heading {
-    NORTH(Coordinate::north), SOUTH(Coordinate::south), WEST(Coordinate::west), EAST(Coordinate::east), NOWHERE(Function.identity());
+    NORTH(Coordinate::north), SOUTH(Coordinate::south), WEST(Coordinate::west), EAST(Coordinate::east);
 
     final Function<Coordinate, Coordinate> mover;
 
     Heading(Function<Coordinate, Coordinate> mover) {
         this.mover = mover;
-    }
-
-    static Collection<Heading> headings() {
-        return Set.of(NORTH, SOUTH, WEST, EAST);
     }
 }
 
