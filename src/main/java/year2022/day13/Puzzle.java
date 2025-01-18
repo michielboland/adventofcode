@@ -2,7 +2,9 @@ package year2022.day13;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -21,6 +23,7 @@ public class Puzzle {
 
     void solve() {
         System.out.println(part1());
+        System.out.println(part2());
     }
 
     int part1() {
@@ -31,6 +34,30 @@ public class Puzzle {
             }
         }
         return total;
+    }
+
+    int part2() {
+        final Pair divider = Pair.from("""
+                [[2]]
+                [[6]]
+                """);
+        List<Packet> packets = new ArrayList<>();
+        packets.add(divider.left());
+        packets.add(divider.right());
+        for (var pair : pairs) {
+            packets.add(pair.left());
+            packets.add(pair.right());
+        }
+        packets.sort(Comparator.naturalOrder());
+        int i = 1;
+        int t = 1;
+        for (var packet : packets) {
+            if (packet == divider.left() || packet == divider.right()) {
+                t *= i;
+            }
+            ++i;
+        }
+        return t;
     }
 }
 
