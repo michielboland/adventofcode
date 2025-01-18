@@ -34,10 +34,10 @@ public class Puzzle {
     }
 }
 
-record Pair(Item left, Item right) {
+record Pair(Packet left, Packet right) {
     static Pair from(String string) {
         var parts = string.split("\n");
-        return new Pair(Item.parse(parts[0]), Item.parse(parts[1]));
+        return new Pair(Packet.parse(parts[0]), Packet.parse(parts[1]));
     }
 
     boolean isSorted() {
@@ -45,24 +45,24 @@ record Pair(Item left, Item right) {
     }
 }
 
-record Item(Integer value, List<Item> list) implements Comparable<Item> {
+record Packet(Integer value, List<Packet> list) implements Comparable<Packet> {
 
     @Override
     public String toString() {
-        return value != null ? value.toString() : "[" + list.stream().map(Item::toString).collect(Collectors.joining(",")) + "]";
+        return value != null ? value.toString() : "[" + list.stream().map(Packet::toString).collect(Collectors.joining(",")) + "]";
     }
 
-    static Item parse(String string) {
+    static Packet parse(String string) {
         if (string.startsWith("[")) {
             if (!string.endsWith("]")) {
                 throw new IllegalArgumentException();
             }
-            return new Item(null, parseList(string.substring(1, string.length() - 1)));
+            return new Packet(null, parseList(string.substring(1, string.length() - 1)));
         }
-        return new Item(Integer.parseInt(string), null);
+        return new Packet(Integer.parseInt(string), null);
     }
 
-    static List<Item> parseList(String string) {
+    static List<Packet> parseList(String string) {
         if (string.isEmpty()) {
             return List.of();
         }
@@ -79,20 +79,20 @@ record Item(Integer value, List<Item> list) implements Comparable<Item> {
             tmp[i] = nc;
         }
         var parts = new String(tmp).split("/");
-        return Arrays.stream(parts).map(Item::parse).toList();
+        return Arrays.stream(parts).map(Packet::parse).toList();
     }
 
-    private List<Item> forceList() {
-        return list != null ? list : List.of(new Item(Objects.requireNonNull(value), null));
+    private List<Packet> forceList() {
+        return list != null ? list : List.of(new Packet(Objects.requireNonNull(value), null));
     }
 
     @Override
-    public int compareTo(Item o) {
+    public int compareTo(Packet o) {
         if (value != null && o.value != null) {
             return value.compareTo(o.value);
         }
-        List<Item> left = forceList();
-        List<Item> right = o.forceList();
+        List<Packet> left = forceList();
+        List<Packet> right = o.forceList();
         int i = 0;
         while (i < left.size() && i < right.size()) {
             var comparison = left.get(i).compareTo(right.get(i));
