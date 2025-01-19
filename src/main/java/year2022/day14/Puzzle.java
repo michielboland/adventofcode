@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -28,12 +29,12 @@ public class Puzzle {
         new Puzzle().solve();
     }
 
-    @Override
-    public String toString() {
+    String toString(Set<Coordinate> sand) {
         var sb = new StringBuilder();
         for (int y = 0; y <= maxY; y++) {
             for (int x = minX; x <= maxX; x++) {
-                sb.append(x == 500 && y == 0 ? '+' : walls.contains(new Coordinate(x, y)) ? '#' : '.');
+                var c = new Coordinate(x, y);
+                sb.append(x == 500 && y == 0 ? '+' : sand.contains(c) ? 'o' : walls.contains(c) ? '#' : '.');
             }
             sb.append('\n');
         }
@@ -42,7 +43,38 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(this);
+        System.out.println(part1());
+    }
+
+    boolean drop(Set<Coordinate> sand) {
+        var unit = new Coordinate(500, 0);
+        while (unit.y() < maxY) {
+            Coordinate next = null;
+            for (var candidate : unit.next()) {
+                if (!sand.contains(candidate) && !walls.contains(candidate)) {
+                    next = candidate;
+                    break;
+                }
+            }
+            if (next == null) {
+                sand.add(unit);
+                return true;
+            } else {
+                unit = next;
+            }
+        }
+        return false;
+    }
+
+    int part1() {
+        int units = 0;
+        Set<Coordinate> sand = new HashSet<>();
+        System.out.println(toString(sand));
+        while (drop(sand)) {
+            ++units;
+        }
+        System.out.println(toString(sand));
+        return units;
     }
 }
 
@@ -50,6 +82,10 @@ record Coordinate(int x, int y) {
     @Override
     public String toString() {
         return x + "," + y;
+    }
+
+    List<Coordinate> next() {
+        return List.of(new Coordinate(x, y + 1), new Coordinate(x - 1, y + 1), new Coordinate(x + 1, y + 1));
     }
 
     static Coordinate from(String input) {
