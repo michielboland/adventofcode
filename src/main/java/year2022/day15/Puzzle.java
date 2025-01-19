@@ -33,18 +33,42 @@ public class Puzzle {
         new Puzzle().solve();
     }
 
-    int beaconNotPresent(@SuppressWarnings("SameParameterValue") int y) {
+    SortedSet<ClosedInterval> coverage(int y) {
         return sensors.stream()
                 .map(s -> s.coverage(y))
                 .filter(Objects::nonNull)
-                .<SortedSet<ClosedInterval>>collect(TreeSet::new, ClosedInterval::combine, ClosedInterval::combine)
+                .<SortedSet<ClosedInterval>>collect(TreeSet::new, ClosedInterval::combine, ClosedInterval::combine);
+    }
+
+    int beaconNotPresent(@SuppressWarnings("SameParameterValue") int y) {
+        return coverage(y)
                 .stream()
                 .mapToInt(ClosedInterval::count)
                 .sum() - (int) beacons.stream().filter(b -> b.y() == y).count();
     }
 
+    long tuningFrequency() {
+        for (int y = 0; y <= 4000000; y++) {
+            var coverage = coverage(y);
+            switch (coverage.size()) {
+                case 1 -> {
+                }
+                case 2 -> {
+                    int x = coverage.first().to() + 1;
+                    if (x != coverage.last().from() - 1) {
+                        throw new IllegalStateException();
+                    }
+                    return 4000000L * x + y;
+                }
+                default -> throw new IllegalStateException();
+            }
+        }
+        return -1;
+    }
+
     void solve() {
         System.out.println(beaconNotPresent(2000000));
+        System.out.println(tuningFrequency());
     }
 }
 
