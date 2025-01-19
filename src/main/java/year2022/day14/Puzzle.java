@@ -12,16 +12,12 @@ import java.util.stream.IntStream;
 
 public class Puzzle {
     final Set<Coordinate> walls = new HashSet<>();
-    final int minX;
-    final int maxX;
     final int maxY;
 
     Puzzle() throws Exception {
         try (var reader = new BufferedReader(new InputStreamReader(Objects.requireNonNull(getClass().getResourceAsStream("day14_input"))))) {
             walls.addAll(reader.lines().flatMap(l -> Coordinate.wall(l).stream()).collect(Collectors.toSet()));
         }
-        minX = walls.stream().mapToInt(Coordinate::x).min().orElseThrow();
-        maxX = walls.stream().mapToInt(Coordinate::x).max().orElseThrow();
         maxY = walls.stream().mapToInt(Coordinate::y).max().orElseThrow();
     }
 
@@ -29,31 +25,24 @@ public class Puzzle {
         new Puzzle().solve();
     }
 
-    String toString(Set<Coordinate> sand) {
-        var sb = new StringBuilder();
-        for (int y = 0; y <= maxY; y++) {
-            for (int x = minX; x <= maxX; x++) {
-                var c = new Coordinate(x, y);
-                sb.append(x == 500 && y == 0 ? '+' : sand.contains(c) ? 'o' : walls.contains(c) ? '#' : '.');
-            }
-            sb.append('\n');
-        }
-        sb.append('\n');
-        return sb.toString();
-    }
-
     void solve() {
-        System.out.println(part1());
+        System.out.println(units(false));
+        System.out.println(units(true));
     }
 
-    boolean drop(Set<Coordinate> sand) {
+    boolean drop(Set<Coordinate> sand, boolean floor) {
         var unit = new Coordinate(500, 0);
-        while (unit.y() < maxY) {
+        if (sand.contains(unit)) {
+            return false;
+        }
+        while (floor || unit.y() < maxY) {
             Coordinate next = null;
-            for (var candidate : unit.next()) {
-                if (!sand.contains(candidate) && !walls.contains(candidate)) {
-                    next = candidate;
-                    break;
+            if (unit.y() <= maxY) {
+                for (var candidate : unit.next()) {
+                    if (!sand.contains(candidate) && !walls.contains(candidate)) {
+                        next = candidate;
+                        break;
+                    }
                 }
             }
             if (next == null) {
@@ -66,14 +55,12 @@ public class Puzzle {
         return false;
     }
 
-    int part1() {
+    int units(boolean floor) {
         int units = 0;
         Set<Coordinate> sand = new HashSet<>();
-        System.out.println(toString(sand));
-        while (drop(sand)) {
+        while (drop(sand, floor)) {
             ++units;
         }
-        System.out.println(toString(sand));
         return units;
     }
 }
