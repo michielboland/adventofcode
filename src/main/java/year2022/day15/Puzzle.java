@@ -7,7 +7,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Puzzle {
     private static final Pattern PATTERN = Pattern.compile("Sensor at (.*): closest beacon is at (.*)");
@@ -48,28 +50,41 @@ public class Puzzle {
     }
 
     long tuningFrequency() {
-        for (int y = 0; y <= 4000000; y++) {
-            var coverage = coverage(y);
-            switch (coverage.size()) {
-                case 1 -> {
-                }
-                case 2 -> {
-                    int x = coverage.first().to() + 1;
-                    if (x != coverage.last().from() - 1) {
-                        throw new IllegalStateException();
-                    }
-                    return 4000000L * x + y;
-                }
-                default -> throw new IllegalStateException();
-            }
+        var diagonals = sensors.stream()
+                .flatMap(s1 -> sensors.stream()
+                        .filter(s2 -> s2.position().y() > s1.position().y())
+                        .filter(s2 -> s2.touches(s1))
+                        .map(s2 -> {
+                            var p1 = s1.position();
+                            var p2 = s2.position();
+                            return p2.x() > p1.x() ? new Diagonal(p1.y() + p1.x() + s1.beaconDistance() + 1, false)
+                                    : new Diagonal(p1.y() - p1.x() + s1.beaconDistance() + 1, true);
+                        })
+                ).collect(Collectors.toSet());
+        var intersections = diagonals.stream()
+                .filter(Predicate.not(Diagonal::inverted))
+                .flatMap(d1 -> diagonals.stream()
+                        .filter(Diagonal::inverted)
+                        .filter(d2 -> (d1.total() + d2.total()) % 2 == 0)
+                        .map(d2 -> new Coordinate((d1.total() - d2.total()) / 2, (d1.total() + d2.total()) / 2))
+                ).collect(Collectors.toSet());
+        var missingBeacons = intersections.stream()
+                .filter(c -> c.x() >= 0 && c.x() <= 4000000 && c.y() >= 0 && c.y() <= 4000000)
+                .filter(c -> sensors.stream().allMatch(s -> c.distance(s.position()) > s.beaconDistance()))
+                .collect(Collectors.toSet());
+        if (missingBeacons.size() != 1) {
+            throw new IllegalStateException("expected exactly one missing beacon, got + " + missingBeacons.size());
         }
-        return -1;
+        return missingBeacons.iterator().next().tuningFrequency();
     }
 
     void solve() {
         System.out.println(beaconNotPresent(2000000));
         System.out.println(tuningFrequency());
     }
+}
+
+record Diagonal(int total, boolean inverted) {
 }
 
 record ClosedInterval(int from, int to) implements Comparable<ClosedInterval> {
@@ -122,12 +137,20 @@ record Coordinate(int x, int y) {
     int distance(Coordinate other) {
         return Math.abs(x - other.x) + Math.abs(y - other.y);
     }
+
+    long tuningFrequency() {
+        return 4000000L * x + y;
+    }
 }
 
 record Sensor(Coordinate position, int beaconDistance) {
     ClosedInterval coverage(int y) {
         int width = beaconDistance - Math.abs(y - position.y());
         return width < 0 ? null : new ClosedInterval(position.x() - width, position.x() + width);
+    }
+
+    boolean touches(Sensor other) {
+        return position.distance(other.position) == beaconDistance + other.beaconDistance + 2;
     }
 
     static Sensor from(Coordinate position, Coordinate beacon) {
