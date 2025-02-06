@@ -52,7 +52,8 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(max());
+        System.out.println(max(30, false));
+        System.out.println(max(26, true));
     }
 
     Map<String, Integer> distanceMap(String origin) {
@@ -76,19 +77,19 @@ public class Puzzle {
         return distanceMap;
     }
 
-    int max() {
-        int max = 0;
-        int minutes = 30;
+    int max(int minutes, boolean elephant) {
+        Map<Long, Integer> maxPressures = new HashMap<>();
         Queue<ND> queue = new ArrayDeque<>();
         queue.add(ND.INITIAL);
         while (!queue.isEmpty()) {
             final var current = queue.remove();
             int totalPressure = current.finalTotalPressure(minutes);
-            if (totalPressure > max) {
-                max = totalPressure;
-            }
             final var valve = current.state().valve();
             final var openValveBitmap = current.state().openValveBitmap();
+            var maxForValves = maxPressures.get(openValveBitmap);
+            if (maxForValves == null || totalPressure > maxForValves) {
+                maxPressures.put(openValveBitmap, totalPressure);
+            }
             final var flowRate = valveMap.get(valve);
             valveDistances.get(valve).forEach((newValve, distance) -> {
                 if (current.minute() + distance < minutes) {
@@ -99,7 +100,22 @@ public class Puzzle {
                 }
             });
         }
-        return max;
+        if (elephant) {
+            Map<Long, Integer> combinedPressures = new HashMap<>();
+            maxPressures.forEach((myValves, myPressure) -> maxPressures.forEach((elephantValves, elephantPressure) -> {
+                if (myValves < elephantValves && (myValves & elephantValves) == 0) {
+                    var combinedValves = myValves | elephantValves;
+                    var combinedPressure = myPressure + elephantPressure;
+                    var maxForCombinedValves = combinedPressures.get(combinedValves);
+                    if (maxForCombinedValves == null || combinedPressure > maxForCombinedValves) {
+                        combinedPressures.put(combinedValves, combinedPressure);
+                    }
+                }
+            }));
+            return combinedPressures.values().stream().max(Integer::compareTo).orElseThrow();
+        } else {
+            return maxPressures.values().stream().max(Integer::compareTo).orElseThrow();
+        }
     }
 }
 
