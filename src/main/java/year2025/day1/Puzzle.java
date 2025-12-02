@@ -59,8 +59,7 @@ public class Puzzle {
             } else {
                 throw new IllegalArgumentException();
             }
-            var mod = newNumber % 100;
-            return new Dial(mod, zeros + (mod == 0 ? 1 : 0), zeroCrossings + newCrossings);
+            return new Dial(newNumber, zeros + (newNumber % 100 == 0 ? 1 : 0), zeroCrossings + newCrossings);
         }
 
         Dial operate(Instruction instruction) {
