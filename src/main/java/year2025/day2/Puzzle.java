@@ -21,25 +21,33 @@ public class Puzzle {
     public static void main(String[] args) throws Exception {
         var puzzle = new Puzzle();
         System.out.println(puzzle.part1());
+        System.out.println(puzzle.part2());
     }
 
     private long part1() {
-        return ranges.stream().flatMap(r -> r.invalidIds().stream()).mapToLong(l -> l).sum();
+        return sum(Pattern.compile("(.+)\\1"));
+    }
+
+    private long part2() {
+        return sum(Pattern.compile("(.+)\\1+"));
+    }
+
+    private long sum(Pattern pattern) {
+        return ranges.stream().flatMap(r -> r.invalidIds(pattern).stream()).mapToLong(l -> l).sum();
     }
 }
 
 record Range(long min, long max) {
-    private static final Pattern REPEAT_TWO = Pattern.compile("(.+)\\1");
 
     static Range parse(String s) {
         var lr = s.split("-");
         return new Range(Long.parseLong(lr[0]), Long.parseLong(lr[1]));
     }
 
-    List<Long> invalidIds() {
+    List<Long> invalidIds(Pattern pattern) {
         List<Long> invalidIds = new ArrayList<>();
         for (var i = min; i <= max; i++) {
-            if (REPEAT_TWO.matcher(String.valueOf(i)).matches()) {
+            if (pattern.matcher(String.valueOf(i)).matches()) {
                 invalidIds.add(i);
             }
         }
