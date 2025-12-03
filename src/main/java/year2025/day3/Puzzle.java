@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class Puzzle {
 
@@ -14,48 +13,41 @@ public class Puzzle {
             .toList();
 
     public static void main(String[] args) {
-        System.out.println(new Puzzle().banks.stream().mapToInt(Bank::joltage).sum());
+        var puzzle = new Puzzle();
+        System.out.println(puzzle.joltage(2));
+        System.out.println(puzzle.joltage(12));
+    }
+
+    long joltage(int picks) {
+        return banks.stream().mapToLong(b -> b.joltage(picks)).sum();
     }
 }
 
-record Battery(int joltage) {
+record Battery(char joltage) {
     static Battery parse(int c) {
-        return new Battery(c - '0');
-    }
-
-    @Override
-    public String toString() {
-        return String.valueOf(joltage);
+        return new Battery((char) c);
     }
 }
 
 record Bank(List<Battery> batteries) {
-    @Override
-    public String toString() {
-        return batteries.stream().map(Battery::toString).collect(Collectors.joining());
-    }
-
     static Bank parse(String line) {
         return new Bank(line.chars().mapToObj(Battery::parse).toList());
     }
 
-    int joltage() {
-        int l = 0;
-        int mp = 0;
-        for (int p = 0; p + 1 < batteries.size(); p++) {
-            var j = batteries.get(p).joltage();
-            if (j > l) {
-                l = j;
-                mp = p;
+    long joltage(int picks) {
+        int start = 0;
+        var s = new char[picks];
+        for (int i = 0; i < picks; i++) {
+            char max = 0;
+            for (int p = start; p + picks - i - 1 < batteries.size(); p++) {
+                var j = batteries.get(p).joltage();
+                if (j > max) {
+                    max = j;
+                    start = p + 1;
+                }
             }
+            s[i] = max;
         }
-        int r = 0;
-        for (int p = mp + 1; p < batteries.size(); p++) {
-            var j = batteries.get(p).joltage();
-            if (j > r) {
-                r = j;
-            }
-        }
-        return 10 * l + r;
+        return Long.parseLong(new String(s));
     }
 }
