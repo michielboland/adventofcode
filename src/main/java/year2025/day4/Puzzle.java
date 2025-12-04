@@ -18,22 +18,20 @@ public class Puzzle {
 
     void solve() {
         System.out.println(grid.accessibleRolls());
+        System.out.println(grid.bruteforceIt());
     }
 }
 
-record Grid(Set<Coordinate> rolls, Set<Coordinate> spaces, int width, int height) {
+record Grid(Set<Coordinate> rolls) {
     static Grid parse(Stream<String> lines) {
         Set<Coordinate> rolls = new HashSet<>();
-        Set<Coordinate> spaces = new HashSet<>();
         final var y = new AtomicInteger();
         final Set<Integer> xs = new HashSet<>();
         lines.forEach(l -> {
             final var x = new AtomicInteger();
             l.chars().forEach(c -> {
-                switch (c) {
-                    case '.' -> spaces.add(new Coordinate(x.get() + Coordinate.M * y.get()));
-                    case '@' -> rolls.add(new Coordinate(x.get() + Coordinate.M * y.get()));
-                    default -> throw new IllegalArgumentException();
+                if (c == '@') {
+                    rolls.add(new Coordinate(x.get() + Coordinate.M * y.get()));
                 }
                 x.incrementAndGet();
             });
@@ -43,11 +41,36 @@ record Grid(Set<Coordinate> rolls, Set<Coordinate> spaces, int width, int height
         if (xs.size() != 1) {
             throw new IllegalArgumentException();
         }
-        return new Grid(Set.copyOf(rolls), Set.copyOf(spaces), xs.iterator().next(), y.get());
+        return new Grid(rolls);
     }
 
     long accessibleRolls() {
         return rolls.stream().filter(this::accessible).count();
+    }
+
+    long removeAccessibleRolls() {
+        long n = 0;
+        var i = rolls.iterator();
+        while (i.hasNext()) {
+            var roll = i.next();
+            if (accessible(roll)) {
+                // Yes, this works
+                i.remove();
+                ++n;
+            }
+        }
+        return n;
+    }
+
+    long bruteforceIt() {
+        long n = 0;
+        do {
+            var a = removeAccessibleRolls();
+            if (a == 0) {
+                return n;
+            }
+            n += a;
+        } while (true);
     }
 
     boolean accessible(Coordinate roll) {
