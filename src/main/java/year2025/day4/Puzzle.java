@@ -26,7 +26,6 @@ record Grid(Set<Coordinate> rolls) {
     static Grid parse(Stream<String> lines) {
         Set<Coordinate> rolls = new HashSet<>();
         final var y = new AtomicInteger();
-        final Set<Integer> xs = new HashSet<>();
         lines.forEach(l -> {
             final var x = new AtomicInteger();
             l.chars().forEach(c -> {
@@ -35,12 +34,8 @@ record Grid(Set<Coordinate> rolls) {
                 }
                 x.incrementAndGet();
             });
-            xs.add(x.get());
             y.incrementAndGet();
         });
-        if (xs.size() != 1) {
-            throw new IllegalArgumentException();
-        }
         return new Grid(rolls);
     }
 
