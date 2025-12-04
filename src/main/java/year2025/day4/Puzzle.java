@@ -81,13 +81,6 @@ record Grid(Set<Coordinate> rolls) {
 record Coordinate(int p) {
     static final int M = 1_000;
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        Coordinate that = (Coordinate) o;
-        return p == that.p;
-    }
-
     Coordinate north() {
         return new Coordinate(p - M);
     }
