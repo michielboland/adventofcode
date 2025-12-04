@@ -2,9 +2,7 @@ package year2025.day4;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,7 +17,6 @@ public class Puzzle {
     }
 
     void solve() {
-        System.out.println(grid);
         System.out.println(grid.accessibleRolls());
     }
 }
@@ -34,8 +31,8 @@ record Grid(Set<Coordinate> rolls, Set<Coordinate> spaces, int width, int height
             final var x = new AtomicInteger();
             l.chars().forEach(c -> {
                 switch (c) {
-                    case '.' -> spaces.add(new Coordinate(x.get(), y.get()));
-                    case '@' -> rolls.add(new Coordinate(x.get(), y.get()));
+                    case '.' -> spaces.add(new Coordinate(x.get() + Coordinate.M * y.get()));
+                    case '@' -> rolls.add(new Coordinate(x.get() + Coordinate.M * y.get()));
                     default -> throw new IllegalArgumentException();
                 }
                 x.incrementAndGet();
@@ -56,44 +53,32 @@ record Grid(Set<Coordinate> rolls, Set<Coordinate> spaces, int width, int height
     boolean accessible(Coordinate roll) {
         return roll.neighbours().filter(rolls::contains).count() < 4;
     }
-
-    @Override
-    public String toString() {
-        List<String> lines = new ArrayList<>();
-        for (int y = 0; y < height; y++) {
-            var a = new char[width];
-            for (int x = 0; x < width; x++) {
-                var c = new Coordinate(x, y);
-                if (spaces.contains(c)) {
-                    a[x] = '.';
-                } else {
-                    if (!rolls.contains(c)) {
-                        throw new IllegalStateException();
-                    }
-                    a[x] = accessible(c) ? 'x' : '@';
-                }
-            }
-            lines.add(new String(a));
-        }
-        return String.join("\n", lines);
-    }
 }
 
-record Coordinate(int x, int y) {
+record Coordinate(int p) {
+    static final int M = 1_000;
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Coordinate that = (Coordinate) o;
+        return p == that.p;
+    }
+
     Coordinate north() {
-        return new Coordinate(x, y - 1);
+        return new Coordinate(p - M);
     }
 
     Coordinate south() {
-        return new Coordinate(x, y + 1);
+        return new Coordinate(p + M);
     }
 
     Coordinate east() {
-        return new Coordinate(x + 1, y);
+        return new Coordinate(p + 1);
     }
 
     Coordinate west() {
-        return new Coordinate(x - 1, y);
+        return new Coordinate(p - 1);
     }
 
     Stream<Coordinate> neighbours() {
