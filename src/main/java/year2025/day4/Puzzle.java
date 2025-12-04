@@ -31,7 +31,7 @@ record Grid(Set<Coordinate> rolls) {
             final var x = new AtomicInteger();
             l.chars().forEach(c -> {
                 if (c == '@') {
-                    rolls.add(new Coordinate(x.get() + Coordinate.M * y.get()));
+                    rolls.add(new Coordinate(x.get(), y.get()));
                 }
                 x.incrementAndGet();
             });
@@ -80,6 +80,10 @@ record Grid(Set<Coordinate> rolls) {
 
 record Coordinate(int p) {
     static final int M = 1_000;
+
+    public Coordinate(int x, int y) {
+        this(x + M * y);
+    }
 
     Coordinate north() {
         return new Coordinate(p - M);
