@@ -30,7 +30,6 @@ public class Puzzle {
 
     private void solve() {
         System.out.println(part1());
-        // 338928290274353 is too high
         System.out.println(part2());
     }
 
@@ -39,8 +38,7 @@ public class Puzzle {
     }
 
     private long part2() {
-        List<Range> combined = Range.combine(ranges);
-        return combined.stream().mapToLong(Range::size).sum();
+        return Range.combine(ranges).stream().mapToLong(Range::size).sum();
     }
 }
 
@@ -54,8 +52,12 @@ record Range(long min, long max) {
         return n >= min && n <= max;
     }
 
+    boolean contains(Range other) {
+        return min <= other.min && max >= other.max;
+    }
+
     boolean overlaps(Range other) {
-        return contains(other.min) || contains(other.max);
+        return contains(other.min) || contains(other.max) || contains(other) || other.contains(this);
     }
 
     Range combine(Range other) {
@@ -76,7 +78,6 @@ record Range(long min, long max) {
         for (var done = false; !done; ) {
             done = iterate(copy);
         }
-        System.err.println(copy.stream().map(String::valueOf).collect(Collectors.joining("\n")));
         return copy;
     }
 
