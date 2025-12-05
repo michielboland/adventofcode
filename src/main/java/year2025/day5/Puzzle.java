@@ -2,9 +2,11 @@ package year2025.day5;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class Puzzle {
 
@@ -27,7 +29,18 @@ public class Puzzle {
     }
 
     private void solve() {
-        System.out.println(ingredients.stream().filter(this::fresh).count());
+        System.out.println(part1());
+        // 338928290274353 is too high
+        System.out.println(part2());
+    }
+
+    private long part1() {
+        return ingredients.stream().filter(this::fresh).count();
+    }
+
+    private long part2() {
+        List<Range> combined = Range.combine(ranges);
+        return combined.stream().mapToLong(Range::size).sum();
     }
 }
 
@@ -39,5 +52,47 @@ record Range(long min, long max) {
 
     boolean contains(long n) {
         return n >= min && n <= max;
+    }
+
+    boolean overlaps(Range other) {
+        return contains(other.min) || contains(other.max);
+    }
+
+    Range combine(Range other) {
+        return new Range(Math.min(min, other.min), Math.max(max, other.max));
+    }
+
+    long size() {
+        return max + 1L - min;
+    }
+
+    @Override
+    public String toString() {
+        return min + "-" + max;
+    }
+
+    static List<Range> combine(List<Range> ranges) {
+        var copy = new ArrayList<>(ranges);
+        for (var done = false; !done; ) {
+            done = iterate(copy);
+        }
+        System.err.println(copy.stream().map(String::valueOf).collect(Collectors.joining("\n")));
+        return copy;
+    }
+
+    private static boolean iterate(ArrayList<Range> copy) {
+        for (int i = 0; i < copy.size(); i++) {
+            for (int j = i + 1; j < copy.size(); j++) {
+                var left = copy.get(i);
+                var right = copy.get(j);
+                if (left.overlaps(right)) {
+                    copy.remove(j);
+                    copy.remove(i);
+                    copy.add(left.combine(right));
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }
