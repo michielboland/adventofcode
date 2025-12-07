@@ -6,6 +6,8 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -20,10 +22,15 @@ public class Puzzle {
 
     private void solve() {
         System.out.println(part1());
+        System.out.println(part2());
     }
 
     int part1() {
         return grid.splits();
+    }
+
+    long part2() {
+        return grid.timelines();
     }
 }
 
@@ -89,6 +96,23 @@ record Grid(Set<Coordinate> splitters, Coordinate start, int height) {
             }
         }
         return splits;
+    }
+
+    long timelines() {
+        return timelines(start, new TreeMap<>());
+    }
+
+    private long timelines(Coordinate c, SortedMap<Coordinate, Long> cache) {
+        if (cache.containsKey(c)) {
+            return cache.get(c);
+        }
+        var south = c.south();
+        if (south.y() >= height) {
+            return 1;
+        }
+        long timelines = splitters.contains(south) ? timelines(south.west(), cache) + timelines(south.east(), cache) : timelines(south, cache);
+        cache.put(c, timelines);
+        return timelines;
     }
 }
 
