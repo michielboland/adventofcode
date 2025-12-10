@@ -35,9 +35,6 @@ public class Puzzle {
 
     private void solve() {
         System.out.println(part1());
-        // 357176434 is too low
-        // 1469190390 is too high
-        // 2313828804 is too high
         System.out.println(part2());
     }
 
@@ -68,21 +65,24 @@ public class Puzzle {
     }
 
     boolean feasible(Rectangle rectangle) {
-        if (isMagic(rectangle.corner())) {
-            return feasible(rectangle.corner(), rectangle.opposite());
-        } else if (isMagic(rectangle.opposite())) {
-            return feasible(rectangle.opposite(), rectangle.corner());
+        if (isMagic(rectangle.corner()) || isMagic(rectangle.opposite())) {
+            var minX = Math.min(rectangle.corner().x(), rectangle.opposite().x());
+            var maxX = Math.max(rectangle.corner().x(), rectangle.opposite().x());
+            var minY = Math.min(rectangle.corner().y(), rectangle.opposite().y());
+            var maxY = Math.max(rectangle.corner().y(), rectangle.opposite().y());
+            if (minY == maxY) {
+                return false;
+            }
+            // FIXME compute intersections properly instead of this index nonsense
+            for (var y = minY; y <= maxY; y++) {
+                if (index(new Coordinate(minX, y)) == 0 || index(new Coordinate(maxX, y)) == 0) {
+                    return false;
+                }
+            }
+            return true;
         } else {
             return false;
         }
-    }
-
-    boolean feasible(Coordinate magic, Coordinate other) {
-        if (Math.signum(magic.y() - 50000) != Math.signum(other.y() - 50000)) {
-            return false;
-        }
-        var pointOfInterest = new Coordinate(magic.x(), other.y());
-        return index(pointOfInterest) != 0;
     }
 
     int index(Coordinate t) {
@@ -91,6 +91,17 @@ public class Puzzle {
         for (int i = 0; i < n; i++) {
             var p = redTiles.get(i);
             var q = redTiles.get(i + 1 == n ? 0 : i + 1);
+            // special cases
+            if ((p.y() == t.y()) && q.y() == t.y()) {
+                if ((p.x() - t.x()) * (q.x() - t.x()) <= 0) {
+                    return 37;
+                }
+            }
+            if ((p.x() == t.x()) && q.x() == t.x()) {
+                if ((p.y() - t.y()) * (q.y() - t.y()) <= 0) {
+                    return -37;
+                }
+            }
             var yFlag = p.y() >= t.y();
             if (yFlag != (q.y() >= t.y())) {
                 var ySign = yFlag ? -1 : 1;
