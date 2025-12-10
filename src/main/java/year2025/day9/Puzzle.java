@@ -2,22 +2,31 @@ package year2025.day9;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public class Puzzle {
-    private final List<Coordinate> redTiles;
-    private final List<Segment> segments;
+    private final List<Coordinate> redTiles = new BufferedReader(new InputStreamReader(Objects.requireNonNull(getClass().getResourceAsStream("day9_input")))).lines().map(Coordinate::parse).toList();
+    private final Coordinate magic1;
+    private final Coordinate magic2;
 
-    public Puzzle() {
-        redTiles = new BufferedReader(new InputStreamReader(Objects.requireNonNull(getClass().getResourceAsStream("day9_input")))).lines().map(Coordinate::parse).toList();
-        segments = new ArrayList<>();
-        segments.add(new Segment(redTiles.getLast(), redTiles.getFirst()));
-        segments.addAll(IntStream.range(0, redTiles.size() - 1).mapToObj(i -> new Segment(redTiles.get(i), redTiles.get(i + 1))).toList());
+    Puzzle() {
+        // shortcut - make use of the fact that the red tiles form a circle with a very wide bit taken out
+        for (int i = 0; i < redTiles.size() - 2; i++) {
+            var a = redTiles.get(i);
+            var b = redTiles.get(i + 1);
+            var width = Math.abs(a.x() - b.x());
+            if (width > 50000) {
+                magic1 = redTiles.get(i + 1);
+                magic2 = redTiles.get(i + 2);
+                if (Math.signum(magic1.y() - 50000) == Math.signum(magic2.y() - 50000)) {
+                    throw new IllegalStateException();
+                }
+                return;
+            }
+        }
+        magic1 = null;
+        magic2 = null;
     }
 
     public static void main(String[] args) {
@@ -27,6 +36,7 @@ public class Puzzle {
     private void solve() {
         System.out.println(part1());
         // 357176434 is too low
+        // 1469190390 is too high
         // 2313828804 is too high
         System.out.println(part2());
     }
@@ -53,17 +63,49 @@ public class Puzzle {
         return maxArea;
     }
 
+    boolean isMagic(Coordinate coordinate) {
+        return coordinate.equals(magic1) || coordinate.equals(magic2);
+    }
+
     boolean feasible(Rectangle rectangle) {
-        System.err.println(rectangle);
-        var sides = rectangle.sides();
-        for (Segment side : sides) {
-            for (var segment : segments) {
-                if (segment.intersects(side)) {
-                    return false;
+        if (isMagic(rectangle.corner())) {
+            return feasible(rectangle.corner(), rectangle.opposite());
+        } else if (isMagic(rectangle.opposite())) {
+            return feasible(rectangle.opposite(), rectangle.corner());
+        } else {
+            return false;
+        }
+    }
+
+    boolean feasible(Coordinate magic, Coordinate other) {
+        if (Math.signum(magic.y() - 50000) != Math.signum(other.y() - 50000)) {
+            return false;
+        }
+        var pointOfInterest = new Coordinate(magic.x(), other.y());
+        return index(pointOfInterest) != 0;
+    }
+
+    int index(Coordinate t) {
+        var n = redTiles.size();
+        int idx = 0;
+        for (int i = 0; i < n; i++) {
+            var p = redTiles.get(i);
+            var q = redTiles.get(i + 1 == n ? 0 : i + 1);
+            var yFlag = p.y() >= t.y();
+            if (yFlag != (q.y() >= t.y())) {
+                var ySign = yFlag ? -1 : 1;
+                var xFlag = p.x() >= t.x();
+                if (xFlag == (q.x() >= t.x())) {
+                    if (xFlag) {
+                        idx += ySign;
+                    }
+                } else {
+                    // shortcut - don't need to bother for diagonal segments
+                    throw new UnsupportedOperationException();
                 }
             }
         }
-        return true;
+        return idx;
     }
 }
 
@@ -71,69 +113,11 @@ record Rectangle(Coordinate corner, Coordinate opposite) {
     long area() {
         return (Math.abs(corner.x() - opposite.x()) + 1) * (Math.abs(corner.y() - opposite.y()) + 1);
     }
-
-    List<Segment> sides() {
-        var edge1 = new Coordinate(corner.x(), opposite.y());
-        var edge2 = new Coordinate(opposite.x(), corner.y());
-        return Stream.of(new Segment(corner, edge1), new Segment(edge1, opposite), new Segment(opposite, edge2), new Segment(edge2, corner))
-                .filter(Predicate.not(Segment::degenerate)).toList();
-    }
 }
 
 record Coordinate(long x, long y) {
     static Coordinate parse(String s) {
         var parts = s.split(",");
-        return new Coordinate(Long.parseLong(parts[0]), Long.parseLong((parts[1])));
-    }
-
-    @Override
-    public String toString() {
-        return x() + "," + y();
-    }
-}
-
-record Segment(Coordinate from, Coordinate to) {
-    boolean degenerate() {
-        return from.equals(to);
-    }
-
-    boolean horizontal() {
-        return from.y() == to.y();
-    }
-
-    Segment {
-        if (from.x() != to.x() && from.y() != to.y()) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    boolean common(Segment other) {
-        return from.equals(other.from) || from.equals(other.to) || to.equals(other.from) || to.equals(other.to);
-    }
-
-    static boolean between(long x, long a, long b) {
-        if (a == b) {
-            throw new IllegalArgumentException();
-        }
-        return x >= Math.min(a, b) && x < Math.max(a, b);
-    }
-
-    boolean intersects(Segment other) {
-        if (common(other)) {
-            return false;
-        }
-        if (horizontal()) {
-            if (other.horizontal()) {
-                return from.y() == other.from.y() && (between(from.x(), other.from.x(), other.to.x()) || between(to.x(), other.from.x(), other.to.x()));
-            } else {
-                return between(other.from.x(), from.x(), to.x()) && between(from.y(), other.from.y(), other.to.y());
-            }
-        } else {
-            if (other.horizontal()) {
-                return between(from.x(), other.from.x(), other.to.x()) && between(other.from.y(), from.y(), to.y());
-            } else {
-                return from.x() == other.from.x() && (between(from.y(), other.from.y(), other.to.y()) || between(to.y(), other.from.y(), other.to.y()));
-            }
-        }
+        return new Coordinate(Integer.parseInt(parts[0]), Integer.parseInt((parts[1])));
     }
 }
