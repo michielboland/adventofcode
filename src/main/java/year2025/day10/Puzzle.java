@@ -21,10 +21,15 @@ public class Puzzle {
 
     private void solve() {
         System.out.println(part1());
+        System.out.println(part2());
     }
 
     private int part1() {
         return machines.stream().mapToInt(Machine::fewestPresses).sum();
+    }
+
+    private int part2() {
+        return machines.stream().mapToInt(Machine::fewestPresses2).sum();
     }
 }
 
@@ -70,6 +75,16 @@ record Machine(Lights desired, List<Button> buttons, List<Integer> joltages) {
             }
         } while (!queue.isEmpty());
         throw new IllegalStateException();
+    }
+
+    int fewestPresses2() {
+        if (Math.abs(buttons.size() - joltages.size()) > 1) {
+            System.err.println(this);
+            System.err.println(buttons.stream().map(Button::lights).map(String::valueOf).collect(Collectors.joining("\n")));
+            System.err.println("#buttons=" + buttons.size() + " #counters=" + joltages.size());
+            System.err.println("\n");
+        }
+        return 0;
     }
 }
 
@@ -124,6 +139,10 @@ record Button(int bitmap, int size) {
 
     static Button parse(String s, int size) {
         return new Button(Arrays.stream(s.replaceAll("[()]", "").split(",")).mapToInt(Integer::parseInt).map(i -> 1 << (size - 1 - i)).reduce(0, (a, b) -> a | b), size);
+    }
+
+    Lights lights() {
+        return new Lights(bitmap, size);
     }
 
     @Override
