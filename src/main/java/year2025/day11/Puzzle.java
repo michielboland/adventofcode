@@ -50,7 +50,6 @@ public class Puzzle {
             for (String t : devices.get(s)) {
                 System.out.println("  " + s + " -> " + t);
             }
-
         }
         System.out.println("}");
     }
@@ -87,7 +86,7 @@ public class Puzzle {
                 n *= nd.distance();
             }
             nd = nd.previous();
-        } while(nd != null);
+        } while (nd != null);
         if (devices.containsAll(REQUIRED)) {
             return n;
         }
