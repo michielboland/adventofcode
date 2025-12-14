@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -21,6 +22,7 @@ public class Puzzle {
 
     private void solve() {
         System.out.println(part1());
+        // 17827 is too high
         System.out.println(part2());
     }
 
@@ -49,6 +51,30 @@ record Machine(Lights desired, List<Button> buttons, List<Integer> joltages) {
         );
     }
 
+    List<Integer> operate(int buttonMask, List<Integer> originalJoltages) {
+        var a = originalJoltages.toArray(new Integer[0]);
+        for (int i = 0; i < buttons.size(); i++) {
+            if ((buttonMask & 1 << i) != 0) {
+                var button = buttons.get(i);
+                for (int j = 0; j < button.size(); j++) {
+                    if (button.isSet(j)) {
+                        a[j] -= 1;
+                        if (a[j] < 0) {
+                            return null;
+                        }
+                    }
+                }
+            }
+        }
+        return Arrays.stream(a).map(i -> {
+                    if ((i & 1) != 0) {
+                        throw new IllegalStateException();
+                    }
+                    return i >> 1;
+                })
+                .toList();
+    }
+
     @Override
     public String toString() {
         return "[" + desired + "] "
@@ -57,49 +83,103 @@ record Machine(Lights desired, List<Button> buttons, List<Integer> joltages) {
     }
 
     int fewestPresses() {
+        return presses(new Lights(0, desired.size()), desired, true).fewest();
+    }
+
+    Presses presses(Lights source, Lights target, boolean fewest) {
+        if (source.equals(target)) {
+            // workaround in case pushing all the buttons does nothing
+            return Presses.ZERO;
+        }
+        var buttonMasks = new HashSet<Integer>();
+        int min = -1;
+        var visited = new HashSet<Integer>();
         var queue = new PriorityQueue<ND>();
-        var visited = new HashSet<Lights>();
-        queue.add(new ND(new Lights(0, desired.size()), new Button(0, desired.size()), 0, null));
+        queue.add(new ND(source, 0, 0, null));
         do {
             var current = queue.remove();
-            visited.add(current.lights());
-            if (current.lights().equals(desired)) {
-                return current.distance();
+            if (current.lights().equals(target)) {
+                buttonMasks.add(current.buttonMask());
+                if (min == -1) {
+                    min = current.distance();
+                }
+                if (fewest) {
+                    break;
+                }
             }
-            for (var button : buttons) {
+            for (int i = 0; i < buttons.size(); i++) {
+                var button = buttons.get(i);
                 var next = current.lights().toggle(button);
-                if (!visited.contains(next)) {
-                    visited.add(next);
-                    queue.add(new ND(next, button, current.distance() + 1, current));
+                var nextNode = new ND(next, current.buttonMask() | 1 << i, current.distance() + 1, current);
+                if (!visited.contains(nextNode.buttonMask())) {
+                    visited.add(nextNode.buttonMask());
+                    queue.add(nextNode);
                 }
             }
         } while (!queue.isEmpty());
-        throw new IllegalStateException();
+        return new Presses(min, buttonMasks);
+    }
+
+    int oneBits(int buttonMask) {
+        int n = 0;
+        for (int i = 0; i < buttons.size(); i++) {
+            if ((buttonMask & 1 << i) != 0) {
+                n++;
+            }
+        }
+        return n;
     }
 
     int fewestPresses2() {
-        if (Math.abs(buttons.size() - joltages.size()) > 1) {
-            System.err.println(this);
-            System.err.println(buttons.stream().map(Button::lights).map(String::valueOf).collect(Collectors.joining("\n")));
-            System.err.println("#buttons=" + buttons.size() + " #counters=" + joltages.size());
-            System.err.println("\n");
+        return fewestPresses2(joltages);
+    }
+
+    Integer fewestPresses2(List<Integer> adjustedJoltages) {
+        if (adjustedJoltages.stream().allMatch(i -> i == 0)) {
+            return 0;
         }
-        return 0;
+        Integer min = null;
+        var buttonMasks = presses(new Lights(0, adjustedJoltages.size()), lsb(adjustedJoltages), false).buttonMasks();
+        for (var buttonMask : buttonMasks) {
+            var next = operate(buttonMask, adjustedJoltages);
+            if (next != null) {
+                var nextPresses = fewestPresses2(next);
+                if (nextPresses != null) {
+                    var candidate = (nextPresses << 1) + oneBits(buttonMask);
+                    if (min == null || candidate < min) {
+                        min = candidate;
+                    }
+                }
+            }
+        }
+        return min;
+    }
+
+    static Lights lsb(List<Integer> joltages) {
+        var z = new char[joltages.size()];
+        for (int i = 0; i < joltages.size(); i++) {
+            z[i] = (joltages.get(i) & 1) == 0 ? '.' : '#';
+        }
+        return Lights.parse(new String(z));
     }
 }
 
-record ND(Lights lights, Button button, int distance, ND previous) implements Comparable<ND> {
+record Presses(int fewest, Set<Integer> buttonMasks) {
+    static final Presses ZERO = new Presses(0, Set.of(0));
+}
+
+record ND(Lights lights, int buttonMask, int distance, ND previous) implements Comparable<ND> {
 
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         ND nd = (ND) o;
-        return distance == nd.distance && Objects.equals(lights, nd.lights) && Objects.equals(button, nd.button);
+        return distance == nd.distance && buttonMask == nd.buttonMask && Objects.equals(lights, nd.lights);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(lights, button, distance);
+        return Objects.hash(lights, buttonMask, distance);
     }
 
     @Override
@@ -108,8 +188,7 @@ record ND(Lights lights, Button button, int distance, ND previous) implements Co
         if (d != 0) {
             return d;
         }
-        // button sizes are always equal here
-        d = Integer.compare(button.bitmap(), o.button.bitmap());
+        d = Integer.compare(buttonMask, o.buttonMask);
         if (d != 0) {
             return d;
         }
@@ -141,12 +220,12 @@ record Button(int bitmap, int size) {
         return new Button(Arrays.stream(s.replaceAll("[()]", "").split(",")).mapToInt(Integer::parseInt).map(i -> 1 << (size - 1 - i)).reduce(0, (a, b) -> a | b), size);
     }
 
-    Lights lights() {
-        return new Lights(bitmap, size);
+    boolean isSet(int i) {
+        return (bitmap & (1 << (size - 1 - i))) != 0;
     }
 
     @Override
     public String toString() {
-        return "(" + IntStream.range(0, Integer.SIZE).filter(i -> (bitmap & (1 << (size - 1 - i))) != 0).mapToObj(String::valueOf).collect(Collectors.joining(",")) + ")";
+        return "(" + IntStream.range(0, Integer.SIZE).filter(this::isSet).mapToObj(String::valueOf).collect(Collectors.joining(",")) + ")";
     }
 }
