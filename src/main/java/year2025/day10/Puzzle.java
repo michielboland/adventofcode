@@ -22,7 +22,6 @@ public class Puzzle {
 
     private void solve() {
         System.out.println(part1());
-        // 17827 is too high
         System.out.println(part2());
     }
 
@@ -37,7 +36,6 @@ public class Puzzle {
 
 record Machine(Lights desired, Button[] buttons, int[] joltages, Map<Integer, List<Integer>> cache) {
     private static final Pattern PATTERN = Pattern.compile("\\[(.*)] (.*) \\{(.*)}");
-    private static final List<Integer> ZEROLIST = List.of(0);
 
     static Machine parse(String line) {
         var matcher = PATTERN.matcher(line);
@@ -89,10 +87,6 @@ record Machine(Lights desired, Button[] buttons, int[] joltages, Map<Integer, Li
     }
 
     List<Integer> presses(int target) {
-        if (target == 0) {
-            // workaround in case pushing all the buttons does nothing
-            return ZEROLIST;
-        }
         {
             var cached = cache.get(target);
             if (cached != null) {
@@ -101,7 +95,7 @@ record Machine(Lights desired, Button[] buttons, int[] joltages, Map<Integer, Li
         }
         var buttonMasks = new ArrayList<Integer>();
         final var max = 1 << buttons.length;
-        for (int buttonMask = 1; buttonMask < max; buttonMask++) {
+        for (int buttonMask = 0; buttonMask < max; buttonMask++) {
             if (toggle(buttonMask) == target) {
                 buttonMasks.add(buttonMask);
             }
