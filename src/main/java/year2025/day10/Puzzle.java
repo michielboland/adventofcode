@@ -107,9 +107,6 @@ record Machine(Lights desired, Button[] buttons, int[] joltages, Map<Integer, Li
             }
         }
         cache.put(target, buttonMasks);
-        if (buttonMasks.isEmpty()) {
-            return null;
-        }
         return buttonMasks;
     }
 
@@ -143,9 +140,6 @@ record Machine(Lights desired, Button[] buttons, int[] joltages, Map<Integer, Li
         }
         Integer min = null;
         var buttonMasks = presses(lsb(adjustedJoltages));
-        if (buttonMasks == null) {
-            return null;
-        }
         for (var buttonMask : buttonMasks) {
             var next = operate(buttonMask, adjustedJoltages);
             if (next != null) {
